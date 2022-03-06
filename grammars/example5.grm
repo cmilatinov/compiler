@@ -1,0 +1,121 @@
+Program -> StatementList
+
+StatementList -> Statement StatementList | ε
+
+Statement -> ExpressionStatement
+Statement -> BlockStatement
+Statement -> FunctionDeclaration
+Statement -> EmptyStatement
+Statement -> VariableStatement
+Statement -> ReturnStatement
+Statement -> IfStatement
+Statement -> IterationStatement
+
+IfStatement -> 'if' '(' Expression ')' Statement
+
+IterationStatement -> WhileStatement
+IterationStatement -> DoWhileStatement
+IterationStatement -> ForStatement
+
+WhileStatement -> 'while' '(' Expression ')' Statement
+
+DoWhileStatement -> 'do' Statement 'while' '(' Expression ')' ';'
+
+ForStatement -> 'for' '(' OptForStatementInit ';' OptExpression ';' OptExpression ')' Statement
+
+OptForStatementInit -> VariableStatementInit
+OptForStatementInit -> Expression
+OptForStatementInit -> ε
+
+ReturnStatement -> 'return' OptExpression ';'
+
+EmptyStatement -> ';'
+
+BlockStatement -> '{' StatementList '}'
+
+OptFormalParameterList -> FormalParameterList | ε
+FormalParameterList -> 'id' ReptFormalParameterList
+ReptFormalParameterList -> ',' 'id' ReptFormalParameterList | ε
+
+FunctionDeclaration -> 'def' 'id' '(' OptFormalParameterList ')' BlockStatement
+
+ExpressionStatement -> Expression ';'
+
+Expression -> AssignmentExpression
+OptExpression -> Expression | ε
+
+AssignmentExpression -> LogicalORExpression OptAssignmentExpressionEnd
+
+AssignmentExpressionEnd -> '=' LogicalORExpression
+OptAssignmentExpressionEnd -> AssignmentExpressionEnd | ε
+
+LogicalORExpression -> LogicalANDExpression ReptLogicalORExpression
+ReptLogicalORExpression -> 'or_op' LogicalANDExpression ReptLogicalORExpression | ε
+
+LogicalANDExpression -> EqualityExpression ReptLogicalANDExpression
+ReptLogicalANDExpression -> 'and_op' EqualityExpression ReptLogicalANDExpression | ε
+
+EqualityExpression -> RelationalExpression ReptEqualityExpression
+ReptEqualityExpression -> 'eq_op' RelationalExpression ReptEqualityExpression | ε
+
+RelationalExpression -> AdditiveExpression ReptRelationalExpression
+ReptRelationalExpression -> 'rel_op' AdditiveExpression ReptRelationalExpression | ε
+
+AdditiveExpression -> MultiplicativeExpression ReptAdditiveExpression
+ReptAdditiveExpression -> 'add_op' MultiplicativeExpression ReptAdditiveExpression | ε
+
+MultiplicativeExpression -> UnaryExpression ReptMultiplicativeExpression
+ReptMultiplicativeExpression -> 'mul_op' UnaryExpression ReptMultiplicativeExpression | ε
+
+UnaryExpression -> LeftHandSideExpression
+UnaryExpression -> 'add_op' UnaryExpression
+UnaryExpression -> 'not_op' UnaryExpression
+
+LeftHandSideExpression -> CallMemberExpression
+LeftHandSideExpression -> PrimaryExpression
+
+CallMemberExpression -> 'id' MemberIndexCall ReptCallMemberExpression
+
+ReptCallMemberExpression -> '.' 'id' MemberIndexCall ReptCallMemberExpression | ε
+
+MemberIndexCall -> ReptIndex
+MemberIndexCall -> '(' OptArgumentList ')'
+
+ReptIndex -> Index ReptIndex | ε
+Index -> '[' 'int' ']'
+
+ArgumentList -> AssignmentExpression ReptArgumentList
+ReptArgumentList -> ',' AssignmentExpression ReptArgumentList | ε
+OptArgumentList -> ArgumentList | ε
+
+VariableStatement -> VariableStatementInit ';'
+
+VariableStatementInit -> 'let' VariableDeclarationList
+
+VariableDeclarationList -> VariableDeclaration ReptVariableDeclarationList
+ReptVariableDeclarationList -> ',' VariableDeclaration ReptVariableDeclarationList | ε
+
+VariableDeclaration -> 'id' OptVariableInitializer
+
+VariableInitializer -> '=' AssignmentExpression
+OptVariableInitializer -> VariableInitializer | ε
+
+PrimaryExpression -> Literal
+PrimaryExpression -> '(' Expression ')'
+
+Literal -> 'int' | 'float' | 'bool' | 'string' | 'null'
+
+'id' -> '[a-zA-Z_][a-zA-Z0-9_]*'
+'int' -> '(?:[1-9][0-9]*|0)'
+'float' -> '[+\-]?(?:[1-9][0-9]*|0)?(?:\.[0-9]*[1-9]|\.0)(?:[eE][+\-]?(?:[1-9][0-9]*|0))?'
+'bool' -> '(?:true|false)'
+'string' -> '"[^"]*"'
+
+'add_op' -> '[+-]'
+'mul_op' -> '[*/]'
+'or_op' -> '\|\|'
+'and_op' -> '&&'
+'eq_op' -> '(?:==|!=)'
+'rel_op' -> '(?:>=|<=|>|<)'
+'not_op' -> '!'
+

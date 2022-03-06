@@ -1,0 +1,23 @@
+struct BASE {
+    private let a: float;
+	private let b: float;
+};
+
+struct DERIVED inherits BASE {
+    private let c: float;
+    public func someFunction(x: float) -> BASE;
+};
+
+impl DERIVED {
+    func someFunction(x: float) -> float
+    {
+        return (x + a * b);
+    }
+}
+
+func main() -> void {
+    let result: DERIVED;
+    result.a = 10;
+    result.b = 20;
+    result.someFunction(3.0);
+}

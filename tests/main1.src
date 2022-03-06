@@ -1,0 +1,14 @@
+struct EMPTY {};
+
+struct RETURN_TYPES {
+    public func someFunction1(a: float, b: float[], c: float[3][4]) -> float;
+    public func someFunction2(a: integer, b: integer[], c: integer[3][4]) -> integer;
+    public func someFunction3() -> void;
+    public func someFunction4(a: EMPTY, b: EMPTY[], c: EMPTY[3][4]) -> EMPTY;
+};
+
+func main() -> void {
+    let a: EMPTY;
+    let b: RETURN_TYPES;
+    return (0);
+}

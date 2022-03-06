@@ -1,0 +1,9 @@
+E -> T R
+R -> 'add_op' T R | ε
+T -> F Y
+Y -> 'mul_op' F Y | ε
+F -> '(' E ')' | 'id'
+
+'id' -> '[0-9]+|[a-zA-Z_][a-zA-Z0-9_]*'
+'add_op' -> '[+-]'
+'mul_op' -> '[*/]'

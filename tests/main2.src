@@ -1,0 +1,13 @@
+// Testing id nesting
+func main() -> void {
+    id(id).id;
+    id(id).id();
+    id.id[id];
+    id[id].id;
+    id[id].id[id];
+    id.id[id][id];
+    id[id][id].id;
+    id[id][id].id[id][id];
+    id(id).id[id];
+    id(id).id[id][id];
+}

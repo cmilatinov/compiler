@@ -2,9 +2,9 @@ import commandLineArgs from 'command-line-args';
 import * as fs from 'fs';
 
 import { commandLineOptions, printHelp } from './cli';
-import { Grammar, GrammarParser } from '../lib/grammar';
+import { Grammar, GrammarFactory } from '../lib/grammar';
 import DefaultGrammar from '../lib/default-grammar';
-import { printAST } from './utils';
+import * as Utils from './utils';
 
 main();
 
@@ -20,7 +20,7 @@ function main() {
 
     // Print default grammar
     if (options['default-grammar']) {
-        const grammar = GrammarParser.fromString(DefaultGrammar);
+        const grammar = GrammarFactory.fromString(DefaultGrammar);
         grammar.print();
         return;
     }
@@ -33,7 +33,7 @@ function main() {
     }
 
     // Grammar
-    const grammar: Grammar = options.grammar ? GrammarParser.fromFile(options.grammar) : GrammarParser.fromString(DefaultGrammar);
+    const grammar: Grammar = options.grammar ? GrammarFactory.fromFile(options.grammar) : GrammarFactory.fromString(DefaultGrammar);
 
     // Check LL(1)
     if (!grammar.isLL1()) {
@@ -81,7 +81,7 @@ function main() {
 
     // Generate & Print AST
     const ast = grammar.createAST(root);
-    printAST(ast, str => fs.writeSync(outputFile, str));
+    Utils.printAST(ast, str => fs.writeSync(outputFile, str));
 
     // Close files
     fs.closeSync(outputFile);

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import commandLineArgs from 'command-line-args';
 
 import { commandLineOptions, printHelp } from './cli';
-import { GrammarParser, Grammar } from '../lib/grammar';
+import { Grammar, GrammarFactory } from '../lib/grammar';
 import DefaultGrammar from '../lib/default-grammar';
 
 main();
@@ -19,7 +19,7 @@ function main() {
 
     // Print default grammar
     if (options['default-grammar']) {
-        const grammar = GrammarParser.fromString(DefaultGrammar);
+        const grammar = GrammarFactory.fromString(DefaultGrammar);
         grammar.print();
         return;
     }
@@ -32,7 +32,7 @@ function main() {
     }
 
     // Grammar
-    const grammar: Grammar = options.grammar ? GrammarParser.fromFile(options.grammar) : GrammarParser.fromString(DefaultGrammar);
+    const grammar: Grammar = options.grammar ? GrammarFactory.fromFile(options.grammar) : GrammarFactory.fromString(DefaultGrammar);
 
     // Check LL(1)
     if (!grammar.isLL1()) {

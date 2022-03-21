@@ -1,4 +1,6 @@
-export function printAST(node,  print: (str) => void = str => process.stdout.write(str), indent: string = '', last: boolean = true) {
+import { ASTNode } from '../lib/ast-validator';
+
+export function printAST(node: ASTNode, print: (str) => void = str => process.stdout.write(str), indent: string = '', last: boolean = true) {
     if (!node || !node.type)
         return;
 
@@ -19,7 +21,7 @@ export function printAST(node,  print: (str) => void = str => process.stdout.wri
             k !== 'type' && (
                 typeof v === 'string' ||
                 (Array.isArray(v) && v.length > 0 && typeof v[0] !== 'object')
-        ))
+            ))
         .map(([k, v]) => `${k}: ${Array.isArray(v) ? `[${v.join(', ')}]` : `'${v}'`}`)
         .join(', ');
     if (properties !== '')
@@ -27,16 +29,21 @@ export function printAST(node,  print: (str) => void = str => process.stdout.wri
     print(`[${node.type}] ${properties ? '— ' : ''}${properties}\n`);
 
     // Find children
-    const children = Object.values(node).filter(value => {
-        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && value[0] && value[0].hasOwnProperty('type'))
-            return true;
-        else if (typeof value === 'object' && value && value.hasOwnProperty('type'))
-            return true;
-        return false;
-    }).reduce<any[]>((accumulator, value) => Array.isArray(value) ? [...accumulator, ...value] : [...accumulator, value], []);
+    const children = getNodeChildren(node);
 
     // Print each child node
     for (let i = 0; i < children.length; i++) {
         printAST(children[i], print, indent, i == children.length - 1);
     }
+}
+
+export function getNodeChildren(node: ASTNode): ASTNode[] {
+    return Object.values(node).filter(value => {
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && value[0] &&
+            value[0].hasOwnProperty('type') && value[0].type !== 'FunctionParameter')
+            return true;
+        else if (typeof value === 'object' && value && value.hasOwnProperty('type'))
+            return true;
+        return false;
+    }).reduce<ASTNode[]>((accumulator, value) => Array.isArray(value) ? [...accumulator, ...value] : [...accumulator, value], []);
 }

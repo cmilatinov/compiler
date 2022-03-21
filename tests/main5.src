@@ -1,6 +1,6 @@
 struct BASE {
-    private let a: float;
-	private let b: float;
+    public let a: float;
+	public let b: float;
 };
 
 struct DERIVED inherits BASE {

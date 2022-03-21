@@ -1,10 +1,11 @@
 import * as fs from 'fs';
 import { Set } from 'immutable';
 
+import * as LibUtils from './utils';
+import { ASTNode } from './ast-validator';
 import { EPSILON, EOF } from './symbols';
-import { TokenInstance, Tokenizer, TokenType, MultiLineCommentToken, SingleLineCommentToken, WhitespaceToken } from './tokenizer';
-import { Transform } from 'stream';
-import { Console } from 'console';
+import { TokenInstance, Tokenizer, TokenType, MultiLineCommentToken, SingleLineCommentToken, WhitespaceToken, TokenizerFactory } from './tokenizer';
+
 
 export class GrammarRule {
     public readonly LHS: string;
@@ -39,7 +40,7 @@ export class DerivationNode {
     }
 }
 
-export class GrammarParser {
+export class GrammarFactory {
 
     public static fromFile(file: string): Grammar {
         const grammarStr: string = fs.readFileSync(file).toString().replace(/\r\n/g, '\n');
@@ -87,15 +88,16 @@ export class GrammarParser {
 
 export class Grammar {
 
-    _rules: GrammarRule[];
-    _terminalRules: GrammarRule[];
-    _startSymbol: string;
-    _nonTerminals: string[];
-    _terminals: string[];
-    _firstSets: { [key: string]: Set<string>; };
-    _followSets: { [key: string]: Set<string>; };
-    _parsingTableLL1: any;
-    _tokenTypes: TokenType[];
+    private readonly _rules: GrammarRule[];
+    private readonly _terminalRules: GrammarRule[];
+    private readonly _startSymbol: string;
+
+    private _nonTerminals: string[];
+    private _terminals: string[];
+    private _firstSets: { [key: string]: Set<string>; };
+    private _followSets: { [key: string]: Set<string>; };
+    private _parsingTableLL1: object;
+    private _tokenTypes: TokenType[];
 
     public constructor(rules: GrammarRule[]) {
         this._rules = rules.filter(r => !Grammar.isTerminal(r.LHS));
@@ -360,12 +362,12 @@ export class Grammar {
 
 
     public parseString(input: string, printErr: (str) => void = str => process.stdout.write(str)) {
-        const tokenizer = Tokenizer.fromString(input, this._tokenTypes);
+        const tokenizer = TokenizerFactory.fromString(input, this._tokenTypes);
         return this.parse(tokenizer, printErr);
     }
 
     public parseFile(file: string, printErr: (str) => void = str => process.stdout.write(str)) {
-        const tokenizer = Tokenizer.fromFile(file, this._tokenTypes);
+        const tokenizer = TokenizerFactory.fromFile(file, this._tokenTypes);
         return this.parse(tokenizer, printErr);
     }
 
@@ -396,7 +398,7 @@ export class Grammar {
                         lookahead = tokenizer.next();
                         flag = true;
                     } catch (err) {
-                        printErr(`[ERROR]: ${err.message}\n`);
+                        printErr(`${err.message}`);
                     }
                 }
 
@@ -405,13 +407,13 @@ export class Grammar {
                 if (!rule) {
                     if (this.firstOf(node.token.type).has(EPSILON))
                         continue;
-                    printErr(`[ERROR]: ${lookahead.location.toString()} Unexpected token '${Grammar.stringify(lookahead.type)}', expected '${Grammar.stringify(node.token.type)}'!\n`);
-                    return root;
+                    printErr(`${lookahead.location.toString()} Unexpected token '${Grammar.stringify(lookahead.type)}', expected '${Grammar.stringify(node.token.type)}'.`);
+                    return null;
                 } else if (Array.isArray(rule)) {
-                    printErr(`[ERROR]: ${lookahead.location.toString()} Unexpected token '${Grammar.stringify(lookahead.type)}', expected '${Grammar.stringify(node.token.type)}'!\n`);
-                    printErr(`[ERROR]: Multiple reduction rules found:\n`);
-                    rule.forEach(r => printErr(`[ERROR]:     ${r.toString()}\n`));
-                    return root;
+                    printErr(`${lookahead.location.toString()} Unexpected token '${Grammar.stringify(lookahead.type)}', expected '${Grammar.stringify(node.token.type)}'.`);
+                    printErr(`Multiple reduction rules found:`);
+                    rule.forEach(r => printErr(`     ${r.toString()}`));
+                    return null;
                 }
 
                 const production = rule.RHS.filter(s => s !== EPSILON).reverse()
@@ -426,9 +428,9 @@ export class Grammar {
         return root;
     }
 
-    public createAST(root: DerivationNode) {
+    public createAST(root: DerivationNode): ASTNode {
         if (Grammar.isTerminal(root.token.type))
-            return root.token.value;
+            return root.token as unknown as ASTNode;
 
         if (!root.rule)
             return undefined;
@@ -444,17 +446,12 @@ export class Grammar {
     }
 
     public printParseTable(print: (str) => void = (str => process.stdout.write(str))) {
-        const ts = new Transform({ transform(chunk, enc, cb) { cb(null, chunk) } })
-        const logger = new Console({ stdout: ts });
-
-        const object = {};
+        const tableObject = {};
         Object.keys(this._parsingTableLL1).forEach(k => {
-            object[k] = {};
-            Object.keys(this._parsingTableLL1[k]).forEach(j => object[k][j] = this._parsingTableLL1[k][j]?.toString());
+            tableObject[k] = {};
+            Object.keys(this._parsingTableLL1[k]).forEach(j => tableObject[k][j] = this._parsingTableLL1[k][j]?.toString());
         });
-
-        logger.table(object);
-        const table = (ts.read() || '').toString();
+        const table = LibUtils.stringTable(tableObject);
         print(table);
     }
 

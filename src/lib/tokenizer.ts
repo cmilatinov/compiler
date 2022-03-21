@@ -29,6 +29,7 @@ export interface TokenInstance {
 export const WhitespaceToken: TokenType = [/^\s+/, null];
 export const SingleLineCommentToken: TokenType = [/^\/\/.*/, null];
 export const MultiLineCommentToken: TokenType = [/^\/\*[\s\S]*?\*\//, null];
+
 export const IntegerToken: TokenType = [/^(?:[1-9][0-9]*|0)/, 'int', Number];
 export const FloatToken: TokenType = [/^[+\-]?(?:[1-9][0-9]*|0)?(?:\.[0-9]*[1-9]|\.0)(?:[eE][+\-]?(?:[1-9][0-9]*|0))?/, 'float', Number];
 export const BooleanToken: TokenType = [/^(?:true|false)/, 'bool', Boolean];
@@ -78,14 +79,28 @@ const DEFAULT_TOKENS : TokenType[] = [
 
 ];
 
+export class TokenizerFactory {
+
+    static fromString(string: string, tokenTypes: TokenType[] = DEFAULT_TOKENS): Tokenizer {
+        return new Tokenizer(string, tokenTypes);
+    }
+
+    static fromFile(file: string, tokenTypes: TokenType[] = DEFAULT_TOKENS): Tokenizer {
+        const string = fs.readFileSync(file).toString();
+        return new Tokenizer(string, tokenTypes, file);
+    }
+
+}
+
 export class Tokenizer {
 
     private readonly _tokenTypes: TokenType[];
     private readonly _file: string;
     private readonly _string: string;
+
     private _cursor: number;
 
-    private constructor(string: string, tokenTypes: TokenType[] = DEFAULT_TOKENS, file: string = 'inline') {
+    public constructor(string: string, tokenTypes: TokenType[] = DEFAULT_TOKENS, file: string = 'inline') {
         this._tokenTypes = tokenTypes;
         this._file = file;
         this._string = string;
@@ -144,15 +159,6 @@ export class Tokenizer {
         const line = lines.length;
         const column = lines[lines.length - 1].length + 1;
         return new SourceLocation(this._file, line, column);
-    }
-
-    static fromString(string: string, tokenTypes: TokenType[] = DEFAULT_TOKENS): Tokenizer {
-        return new Tokenizer(string, tokenTypes);
-    }
-
-    static fromFile(file: string, tokenTypes: TokenType[] = DEFAULT_TOKENS): Tokenizer {
-        const string = fs.readFileSync(file).toString();
-        return new Tokenizer(string, tokenTypes, file);
     }
 
 }

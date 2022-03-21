@@ -1,32 +1,77 @@
-// ====== struct declarations ====== //
+struct first {};
+struct second inherits first {};
+struct third inherits first {};
+struct fourth inherits second {};
+struct fifth inherits third {};
+struct sixth inherits fourth, fifth {};
+
+// ====== Class declarations ====== //
 struct POLYNOMIAL {
 	public func evaluate(x: float) -> float;
+	public func evaluate2(x: float) -> float;                     // 6.2
 };
-
+struct POLYNOMIAL {                                                   // 8.1
+	public func evaluate(x: float) -> float;
+        public func evaluate(x: integer) -> integer;                  // 9.2
+};
 struct LINEAR inherits POLYNOMIAL {
 	private let a: float;
 	private let b: float;
-	public  func build(A: float, B: float) -> LINEAR;
-	public  func evaluate(x: float) -> float;
+	private let b: integer;                                       // 8.3
+
+    public func b() -> void;
+	public func build(A: float, B: float) -> LINEAR;
+	public func evaluate(x: float) -> float;                      // 9.3
 };
 
 struct QUADRATIC inherits POLYNOMIAL {
-	private let a: float;
-	private let b: float;
+	private let a: float;                                         // 8.5
+	private let b: float;                                         // 8.5
 	private let c: float;
-	public  func build(A: float, B: float, C: float) -> QUADRATIC;
-	public  func evaluate(x: float) -> float;
+
+	public func build(A: float, B: float, C: float) -> QUADRATIC;
+	public func evaluate(x: float) -> float;                      // 9.3
 };
 
+struct C inherits E {
+	private let a: integer;
+};
+
+struct D inherits C {
+	private let b: integer;
+};
+
+struct E inherits D {                                                 // 14.1
+	private let c: integer;
+};
+
+
 // ====== struct implementations ====== //
-impl POLYNOMIAL {   
+impl POLYNOMIAL {
   func evaluate(x: float) -> float
   {
     return (0);
   }
 }
-  
-impl QUADRATIC { 
+
+impl LINEAR {
+  func build(A: float, B: float) -> LINEAR
+  {
+    let new_function: LINEAR;
+    new_function.a = A;
+    new_function.b = B;
+    return (new_function);
+  }
+  func evaluate(x: float) -> float
+  {
+    let result: float;
+    result = 0.0;
+    result = a * x + b;
+    return (result);
+  }
+}
+
+impl QUADRATIC {
   func evaluate(x: float) -> float
   {
     let result: float;
@@ -36,177 +81,93 @@ impl QUADRATIC {
     result = result * x + c;
     return (result);
   }
-  func build(A: float, B: float, C: float) -> QUADRATIC 
+  func build(A: float, B: float, C: float) -> QUADRATIC
   {
     let new_function: QUADRATIC ;
+    new_function.a = A + B * 3;                                       // 10.1
+    new_function.b = B;
+    new_function.c = 1;                                               // 10.2
+    return (1);                                                       // 10.3
+  }
+  func build2(A: float, B: float, C: float) -> QUADRATIC              // 6.1
+  {
+    let new_function: QUADRATIC;
     new_function.a = A;
     new_function.b = B;
     new_function.c = C;
     return (new_function);
   }
 }
-  
-impl LINEAR {
-  func build(A: float, B: float) -> LINEAR 
-  {
-    let new_function: LINEAR;
-    new_function.a = A;
-    new_function.b = B;
-    return (new_function);
-  }
-  func evaluate(x: float) -> float 
-  {
-    let result: float;
-    result = 0.0;
-    result = a * x + b;
-    return (result);
-  }
-} 
+
+func f(i: integer) -> void {}
+func f(i: integer) -> void {}                                        // 8.2
+func f(i: integer, j: integer) -> integer {}                         // 9.1
+
+func f3(p1: integer[2][3]) -> integer {}
+
 
 // ====== main ====== //
 func main() -> void
 {
+  let a: a;                                                         // 11.5
+  let c: LINEAR;
   let f1: LINEAR;
   let f2: QUADRATIC;
   let counter: integer;
+  let counter: float;                                               // 8.4
+  let i: integer[2][3];
+  let j: integer[1][2][3];
   f1 = f1.build(2, 3.5);
   f2 = f2.build(-2.0, 1.0, 0.0);
-  counter = 1;
-	
+  c.a = 1;
+  c.z = 1;                                                          // 11.2
+  counter = c.f();                                                  // 11.3
+  undefined();                                                      // 11.4
+  counter = a;                                                      // 11.1
+  f(1,1,1);                                                         // 12.1
+  f(1.2,1);                                                         // 12.2
+  i[2] = 1;                                                         // 13.1
+  i[2][1.3] = 2;                                                    // 13.2
+  f3(j);                                                            // 13.3
+  counter.x = 1;                                                    // 15.1
   while(counter <= 10)
   {
     write(counter);
-    write(f1.evaluate(counter));
+    read(f1.evaluate(counter));
     write(f2.evaluate(counter));
   };
 }
+
 /*
-    classes
-    --------------------------------------
-| | no class declaration
-| | class declaration
-|X| multiple class declarations
-|X| no data member declaration
-|X| data member declaration
-|X| multiple data member declaration
-| | no member function declaration
-|X| member function declaration
-|X| multiple member function declaration
-| | no member
-|X| no inherited class
-|X| one inherited class
-| | multiple inherited classes
-|X| private member specifier
-|X| public member specifier
-
-    functions: definitions
-    --------------------------------------
-| | no main function definition
-|X| main function definition
-|X| no free function definition
-| | free function definition
-| | multiple free function definitions
-| | no member function definition
-|X| member function definition
-|X| multiple member function definitions
-| | return type: void
-| | return type: integer
-|X| return type: float
-|X| return type: id
-| | return type: array (not allowed)
-
-    functions: formal parameters
-    --------------------------------------
-| | type: integer
-|X| type: float
-| | type: id
-| | type: 1-dim array 
-| | type: n-dim array
-| | type: array (with size)
-| | type: array (without size)
-
-    functions: calls
-    --------------------------------------
-| | free function call
-|X| member function call
-| | parameters:0
-|X| parameters:1
-|X| parameters:n
-| | array parameter - 1-dim
-| | array parameter - n-dim
-| | array parameter - with size
-| | array parameter - without size
-| | function call as statement
-|X| function call as expression factor
-| | expression as parameter
-
-    variable declaration
-    --------------------------------------
-| | type: integer
-| | type: float
-| | type: string
-|X| type: id
-| | type: 1-dim array 
-| | type: n-dim array
-| | type: array (with size)
-| | type: array (without size)
-
-    function body: local variable declarations
-    --------------------------------------
-| | no local variable declarations
-|X| local variable declarations
-| | intertwined statements and variable declarations
-
-    function body: statements
-    --------------------------------------
-| | no statement
-| | 1 statement
-|X| n statements
-| | if statement
-| | if: empty then or else blocks
-| | if: 1-statement then or else blocks
-| | if: n-statements then or else blocks
-|X| while statement
-| | while: empty block
-| | while: 1-statement block
-|X| while: n-statement block
-| | read(<variable>) statement
-|X| write(<expr>) statement
-|X| return(<expr>) statement
-|X| assignment statement
-
-    variable + idnest
-    --------------------------------------
-|X| id
-|X| id.id
-|X| id.id(id)
-| | id(id).id
-| | id(id).id()
-| | id.id[id]
-| | id[id].id
-| | id[id].id[id]
-| | id.id[id][id]
-| | id[id][id].id
-| | id[id][id].id[id][id]
-| | id(id).id[id]
-| | id(id).id[id][id]
-| | expression as array index
-
-    expressions
-    --------------------------------------
-| | single variable
-| | involving addop
-| | involving multop
-| | involving relop
-|X| involving addop + multop
-| | involving multop + relop
-| | involving addop + multop + relop
-| | involving parentheses
-| | involving nested parenhteses
-| | involving not
-| | involving sign
-| | involving literals
-|X| involving variable + idnest
-|X| involving function calls
-| | involving all the above in one expression
+1.   |X| global symbol table
+2.   |X| class symbol table
+3.1  |X| class data member
+3.2  |X| function's local variable
+4.1  |X| free function
+4.2  |X| member function
+6.1  |X| undeclared member function definition
+6.2  |X| undefined member function declaration
+8.1  |X| multiply declared class
+8.2  |X| multiply defined free function
+8.3  |X| multiply declared identifier in class
+8.4  |X| multiply declared identifier in function
+8.5  |X| shadowed inherited data member
+9.1  |X| Overloaded free function
+9.2  |X| Overloaded member function
+9.3  |X| Overridden inherited member function
+10.1 |X| Type error in expression
+10.2 |X| Type error in assignment statement
+10.3 |X| Type error in return statement
+11.1 |X| Undeclared local variable
+11.2 |X| Undeclared data member
+11.3 |X| Undeclared member function
+11.4 |X| Undeclared free function
+11.5 |X| Undeclared class
+12.1 |X| Function call with wrong number of parameters
+12.2 |X| Function call with wrong type of parameters
+13.1 |X| Use of array with wrong number of dimensions
+13.2 |X| Array index is not an integer
+13.3 |X| Array parameter using wrong number of dimensions
+14.1 |X| Circular class dependency
+15.1 |X| "." operator used on non-class type
 */

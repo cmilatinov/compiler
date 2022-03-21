@@ -1,17 +1,17 @@
 struct BASE {
-    public let a: float;
-	public let b: float;
+    private let a: float;
+	private let b: float;
 };
 
 struct DERIVED inherits BASE {
     private let c: float;
-    public func someFunction(x: float) -> BASE;
+    public func someFunction(x: BASE) -> float;
 };
 
 impl DERIVED {
-    func someFunction(x: float) -> float
+    func someFunction(x: BASE) -> float
     {
-        return (x + a * b);
+        return (x + 10.0 * 33);
     }
 }
 

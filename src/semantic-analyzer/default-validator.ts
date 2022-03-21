@@ -669,6 +669,8 @@ export class DefaultValidator extends ASTValidatorBase {
                         if (Utils.typeEquals(leftType, floatType) && Utils.typeEquals(rightType, floatType))
                             return floatType;
 
+                        this.error(`Arithmetic operator '${expression.operator}' must be used on 'integer' or 'float' types only, ` +
+                            `instead got '${Utils.stringifyType(leftType)}' and '${Utils.stringifyType(rightType)}'.`);
                         return undefined;
 
                     case '||':
@@ -676,6 +678,8 @@ export class DefaultValidator extends ASTValidatorBase {
                         if (Utils.typeEquals(leftType, booleanType) && Utils.typeEquals(rightType, booleanType))
                             return booleanType;
 
+                        this.error(`Logical operator '${expression.operator}' must be used on 'boolean' types only, `+
+                            `instead got '${Utils.stringifyType(leftType)}' and '${Utils.stringifyType(rightType)}'.`);
                         return undefined;
 
                     case '==':
@@ -690,9 +694,12 @@ export class DefaultValidator extends ASTValidatorBase {
                         if (Utils.typeEquals(leftType, floatType) && Utils.typeEquals(rightType, floatType))
                             return booleanType;
 
+                        this.error(`Relational operator '${expression.operator}' must be used on 'integer' or 'float' types only, ` +
+                            `instead got '${Utils.stringifyType(leftType)}' and '${Utils.stringifyType(rightType)}'.`);
                         return undefined;
 
                     default:
+                        this.error(`Illegal binary expression operator.`);
                         return undefined;
                 }
             }
@@ -705,15 +712,20 @@ export class DefaultValidator extends ASTValidatorBase {
                         if (Utils.typeEquals(type, integerType) || Utils.typeEquals(type, floatType))
                             return type;
 
+                        this.error(`Unary arithmetic operator '${expression.operator}' must be used on 'integer' or 'float' types only, ` +
+                            `instead got '${Utils.stringifyType(type)}'.`);
                         return undefined;
 
                     case '!':
                         if (Utils.typeEquals(type, booleanType))
                             return type;
 
+                        this.error(`Unary negation operator '${expression.operator}' must be used on 'boolean' type only, ` +
+                            `instead got '${Utils.stringifyType(type)}'.`);
                         return undefined;
 
                     default:
+                        this.error(`Illegal unary expression operator.`);
                         return undefined;
                 }
             }

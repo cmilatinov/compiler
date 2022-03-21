@@ -376,7 +376,7 @@ export class DefaultValidator extends ASTValidatorBase {
         let varEntry;
         if (previousTypeEntry) {
             // Check identifier references existing data member
-            varEntry = previousTypeEntry.symbolTable.lookup(node.identifier);
+            varEntry = this.lookupShadowedDataMembers(node.identifier, previousTypeEntry)[0];
             if (varEntry?.type !== 'data') {
                 this.error(`Member variable '${node.identifier}' is not defined on type '${previousTypeEntry.name}'.`);
                 return false;

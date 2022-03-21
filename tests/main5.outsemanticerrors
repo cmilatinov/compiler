@@ -1,0 +1,4 @@
+[ERROR]: (main5.src:12:5) Definition provided for undeclared member function 'someFunction(x: float) -> float'.
+[WARNING]: (main5.src:22:25) Unused data member 'c'.
+[WARNING]: (main5.src:22:25) Unused parameter 'x'.
+[ERROR]: (main5.src:22:25) Unimplemented member function 'someFunction(x: float) -> BASE'.

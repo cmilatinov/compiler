@@ -90,7 +90,7 @@ export function formatType(type: string) {
 export function printSymbolTable(table, print: (str: string) => void = str => process.stdout.write(str)) {
     print(table.toString());
     print('\n');
-    table._table.forEach(e => {
+    table.getEntries().forEach(e => {
         if (e.symbolTable)
             printSymbolTable(e.symbolTable, print);
     });

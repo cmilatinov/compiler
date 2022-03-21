@@ -37,20 +37,20 @@ export class SymbolTable {
         this._table = [];
     }
 
-    lookup(name: string) {
+    public lookup(name: string) {
         const result = this._table.find(e => e.name === name);
         if (result)
             return result;
         return this._parentTable?.lookup(name);
     }
 
-    lookupMultiple(name: string, searchParent: boolean = false) {
+    public lookupMultiple(name: string, searchParent: boolean = false) {
         if (searchParent)
             return this._table.filter(e => e.name === name).concat(this._parentTable?.lookupMultiple(name, searchParent) || []);
         return this._table.filter(e => e.name === name);
     }
 
-    insert(entry: SymbolTableEntry, force: boolean = false) {
+    public insert(entry: SymbolTableEntry, force: boolean = false) {
         const existingEntry = this.lookup(entry.name);
         if (existingEntry && !force)
             return false;
@@ -58,20 +58,24 @@ export class SymbolTable {
         return true;
     }
 
-    getParentEntry() {
+    public getParentEntry() {
         const parentEntries = this._parentTable?.lookupMultiple(this._name);
         return parentEntries?.find(e => e.symbolTable === this);
     }
 
-    getParentTable() {
+    public getParentTable() {
         return this._parentTable;
     }
 
-    getName() {
+    public getName() {
         return this._name;
     }
 
-    traverseEntries(visitFn: (entry: SymbolTableEntry) => void) {
+    public getEntries() {
+        return this._table;
+    }
+
+    public traverseEntries(visitFn: (entry: SymbolTableEntry) => void) {
         this._table.forEach(e => {
             visitFn(e);
             if (e.symbolTable) {
@@ -80,7 +84,7 @@ export class SymbolTable {
         });
     }
 
-    toString() {
+    public toString() {
         const tableObject = this._table.map(e => {
             const entry = {
                 'Type': e.type,

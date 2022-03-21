@@ -191,3 +191,4 @@ dist
 
 /bin
 **.exe
+**.out*

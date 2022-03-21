@@ -7,7 +7,7 @@
         "build-ast": "rm -rf bin && tsc --project tsconfig.json && pkg ./bin/js/ast/ast.js -t node16-win-x64 -o ./bin/astdriver.exe --options \"no-deprecation\"",
         "ast": "node ./bin/js/ast/ast.js ./tests/main3.src -g ./grammars/example6.grm --parse-table",
         "build-semantic-analyzer": "rm -rf bin && tsc --project tsconfig.json && pkg ./bin/js/semantic-analyzer/semantic-analyzer.js -t node16-win-x64 -o ./bin/semanticanalyzerdriver.exe --options \"no-deprecation\"",
-        "semantic-analyzer": "node ./bin/js/semantic-analyzer/semantic-analyzer.js --help"
+        "semantic-analyzer": "node ./bin/js/semantic-analyzer/semantic-analyzer.js  ./tests/main5.src"
     },
     "dependencies": {
         "@types/command-line-args": "^5.2.0",

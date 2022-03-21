@@ -299,7 +299,7 @@ export class DefaultValidator extends ASTValidatorBase {
                     varType: node.varType,
                     arraySizes: node.arraySizes
                 })) {
-                    const entry = this._currentTable.lookup(node.name);
+                    const entry = this.identifierLookup(node.name);
                     if (entry.type === 'local')
                         this.error(`Multiply declared local variable '${node.name}'.`);
                     else
@@ -461,7 +461,7 @@ export class DefaultValidator extends ASTValidatorBase {
         let varEntry;
         if (previousTypeEntry) {
             // Check identifier in type exists
-            varEntry = previousTypeEntry.symbolTable.lookup(node.identifier);
+            varEntry = this.identifierLookup(node.identifier, previousTypeEntry.symbolTable);
             if (varEntry?.type !== 'data') {
                 this.error(`Member property '${node.identifier}' is not ` +
                     `defined on type '${previousTypeEntry.name}'.`);
@@ -622,14 +622,32 @@ export class DefaultValidator extends ASTValidatorBase {
         const baseClassFunctions = symbolTableEntry.inheritanceList
             .map(c => symbolTableEntry.symbolTable.getParentTable().lookup(c))
             .reduce((arr, c) => [...arr, ...this.lookupShadowedFunctionMembers(name, c)], []);
-        return [...symbolTableEntry.symbolTable.lookupMultiple(name).filter(s => s.type === 'function'), ...baseClassFunctions];
+        return [
+            ...symbolTableEntry.symbolTable.lookupMultiple(name)
+                .filter(s => s.type === 'function'),
+            ...baseClassFunctions
+        ];
     }
 
     private lookupShadowedDataMembers(name: string, symbolTableEntry: SymbolTableEntry) {
         const baseClassMembers = symbolTableEntry.inheritanceList
             .map(c => symbolTableEntry.symbolTable.getParentTable().lookup(c))
             .reduce((arr, c) => [...arr, ...this.lookupShadowedDataMembers(name, c)], []);
-        return [...symbolTableEntry.symbolTable.lookupMultiple(name).filter(s => s.type === 'data'), ...baseClassMembers];
+        return [
+            ...symbolTableEntry.symbolTable.lookupMultiple(name)
+                .filter(s => s.type === 'data'),
+            ...baseClassMembers
+        ];
+    }
+
+    private lookupShadowedMembers(name: string, symbolTableEntry: SymbolTableEntry) {
+        const baseClassMembers = symbolTableEntry.inheritanceList
+            .map(c => symbolTableEntry.symbolTable.getParentTable().lookup(c))
+            .reduce((arr, c) => [...arr, ...this.lookupShadowedMembers(name, c)], []);
+        return [
+            ...symbolTableEntry.symbolTable.lookupMultiple(name),
+            ...baseClassMembers
+        ];
     }
 
     private isValidReturnType(type) {
@@ -797,7 +815,7 @@ export class DefaultValidator extends ASTValidatorBase {
     }
 
     private getVariableEntry(identifier: string) {
-        const varEntry = this._currentTable.lookup(identifier);
+        const varEntry = this.identifierLookup(identifier);
         if (!varEntry) {
             this.error(`Undeclared identifier '${identifier}'.`);
             return false;
@@ -812,7 +830,7 @@ export class DefaultValidator extends ASTValidatorBase {
 
     private visitParameters(parameters: ASTNode[]) {
         for (let p of parameters) {
-            const duplicate = this._currentTable.lookup(p.name);
+            const duplicate = this.identifierLookup(p.name);
             if (duplicate && duplicate.type !== 'data') {
                 this.error(`Multiply declared identifier '${duplicate.name}'.`);
                 return false;
@@ -836,6 +854,20 @@ export class DefaultValidator extends ASTValidatorBase {
 
     private warning(str: string) {
         this._warning(`${this._lastLocation?.toString() || ''} ${str}`);
+    }
+
+    private identifierLookup(name: string, symbolTable: SymbolTable = this._currentTable) {
+        const entry = symbolTable.lookup(name);
+        if (entry)
+            return entry;
+
+        const classEntry = this.getCurrentClassEntry(symbolTable);
+        if (classEntry) {
+            const members = this.lookupShadowedMembers(name, classEntry);
+            return members[0];
+        }
+
+        return undefined;
     }
 
     public getGlobalSymbolTable() {

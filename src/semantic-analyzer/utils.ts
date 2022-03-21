@@ -55,6 +55,8 @@ export function stringifyFunction(func: ASTNode) {
 }
 
 export function stringifyType(type) {
+    if (!type)
+        return 'undeclared';
     return `${type.varType}${type.arraySizes.map(s => `[${s > 0 ? s : ''}]`).join('')}`;
 }
 

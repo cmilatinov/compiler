@@ -1,8 +1,0 @@
-[ERROR]: (main5.src:14:28) Arithmetic operator '+' must be used on 'integer' or 'float' types only, instead got 'BASE' and 'float'.
-[ERROR]: (main5.src:20:5) Member variable 'a' is inaccessible from the current scope.
-[ERROR]: (main5.src:21:5) Member variable 'b' is inaccessible from the current scope.
-[ERROR]: (main5.src:22:25) Function 'someFunction' called with wrong argument types.
-[WARNING]: (main5.src:22:25) Unused data member 'a'.
-[WARNING]: (main5.src:22:25) Unused data member 'b'.
-[WARNING]: (main5.src:22:25) Unused data member 'c'.
-[WARNING]: (main5.src:22:25) Unused function 'someFunction'.

@@ -1,9 +1,7 @@
 struct first {};
 struct second inherits first {};
 struct third inherits first {};
-struct fourth inherits second {};
-struct fifth inherits third {};
-struct sixth inherits fourth, fifth {};
+struct fourth inherits second, third {};
 
 // ====== Class declarations ====== //
 struct POLYNOMIAL {
@@ -12,7 +10,7 @@ struct POLYNOMIAL {
 };
 struct POLYNOMIAL {                                                   // 8.1
 	public func evaluate(x: float) -> float;
-        public func evaluate(x: integer) -> integer;                  // 9.2
+    public func evaluate(x: integer) -> integer;                  // 9.2
 };
 struct LINEAR inherits POLYNOMIAL {
 	private let a: float;
@@ -29,7 +27,7 @@ struct QUADRATIC inherits POLYNOMIAL {
 	private let b: float;                                         // 8.5
 	private let c: float;
 
-	public func build(A: float, B: float, C: float) -> QUADRATIC;
+	public func build(a: float, B: float, C: float) -> QUADRATIC;
 	public func evaluate(x: float) -> float;                      // 9.3
 };
 
@@ -41,7 +39,7 @@ struct D inherits C {
 	private let b: integer;
 };
 
-struct E inherits D {                                                 // 14.1
+struct E inherits D {                                             // 14.1
 	private let c: integer;
 };
 
@@ -81,10 +79,12 @@ impl QUADRATIC {
     result = result * x + c;
     return (result);
   }
-  func build(A: float, B: float, C: float) -> QUADRATIC
+  func build(a: float, B: float, C: float) -> QUADRATIC
   {
     let new_function: QUADRATIC ;
-    new_function.a = A + B * 3;                                       // 10.1
+    let int: integer;
+    int = 1 * new_function.a;
+    new_function.a = a + B * 3;                                       // 10.1
     new_function.b = B;
     new_function.c = 1;                                               // 10.2
     return (1);                                                       // 10.3

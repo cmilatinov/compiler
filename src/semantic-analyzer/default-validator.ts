@@ -54,7 +54,7 @@ export class DefaultValidator extends ASTValidatorBase {
         return true;
     }
 
-    protected postVisit(node: ASTNode) {
+    protected postVisit(node: ASTNode): boolean {
         // noinspection FallThroughInSwitchStatementJS
         switch (node.type) {
             case 'ImplDeclaration': {
@@ -77,11 +77,11 @@ export class DefaultValidator extends ASTValidatorBase {
                 });
 
                 // Print warnings for unused variables
-                unusedIdentifiers.forEach(id => this.warning(`Unused ${Utils.formatType(id.type)} '${id.name}'.`));
+                unusedIdentifiers.forEach(id => this.warning(`Unused ${Utils.formatType(id.type)} '${id.name}'.`, id.location));
 
                 // Print errors for unimplemented member functions
                 if (unimplementedFunctions.length > 0) {
-                    unimplementedFunctions.forEach(fn => this.error(`Unimplemented member function '${Utils.stringifyFunction(fn)}'.`));
+                    unimplementedFunctions.forEach(fn => this.error(`Unimplemented member function '${Utils.stringifyFunction(fn)}'.`, fn.location));
                     return false;
                 }
                 break;
@@ -89,7 +89,6 @@ export class DefaultValidator extends ASTValidatorBase {
         return true;
     }
 
-    // noinspection DuplicatedCode
     private visitFunctionDefinition(node: ASTNode) {
         // Member function
         if (this._isImpl) {
@@ -129,6 +128,7 @@ export class DefaultValidator extends ASTValidatorBase {
                 type: 'function',
                 name: node.name,
                 parentTable: this._currentTable,
+                location: this._lastLocation,
                 references: 0,
                 implemented: true,
                 parameters: node.parameters,
@@ -172,16 +172,20 @@ export class DefaultValidator extends ASTValidatorBase {
         }
 
         // Check for overridden function declared in base class
-        const overriddenFunc = this.lookupShadowedFunctionMembers(node.name, this.getCurrentClassEntry());
-        if (overriddenFunc.length > 0) {
-            overriddenFunc[0].references++;
-            const baseClass = this.getCurrentClassEntry(overriddenFunc[0].symbolTable);
-            this.warning(`Member function overrides '${Utils.stringifyFunction(node)}' declared in base class '${baseClass.name}'.`);
+        const classEntry = this.getCurrentClassEntry();
+        if (classEntry) {
+            const overriddenFunc = this.lookupShadowedFunctionMembers(node.name, classEntry, true)
+                .filter(e => e.visibility === 'public');
+            if (overriddenFunc.length > 0) {
+                overriddenFunc[0].references++;
+                const baseClass = this.getCurrentClassEntry(overriddenFunc[0].symbolTable);
+                this.warning(`Member function overrides '${Utils.stringifyFunction(node)}' declared in base class '${baseClass.name}'.`);
+            }
         }
 
         // Shadowed data members
         const shadowedEntries = node.parameters.reduce((acc, p) => [...acc, ...this.lookupShadowedDataMembers(p.name, this._currentTable.getParentEntry())], []);
-        shadowedEntries.filter(e => e.parentTable == this._currentTable || e.visibility === 'public')
+        shadowedEntries.filter(e => e.parentTable === this._currentTable || e.visibility === 'public')
             .forEach(e => this.warning(`Shadowed data member '${e.name}'.`));
 
         // Insert new entry and create new symbol table
@@ -190,6 +194,7 @@ export class DefaultValidator extends ASTValidatorBase {
             type: 'function',
             name: node.name,
             parentTable: this._currentTable,
+            location: this._lastLocation,
             references: 0,
             visibility: node.visibility,
             implemented: false,
@@ -217,6 +222,7 @@ export class DefaultValidator extends ASTValidatorBase {
             type: 'class',
             name: node.name,
             parentTable: this._currentTable,
+            location: this._lastLocation,
             references: 0,
             inheritanceList: node.inheritanceList,
             symbolTable
@@ -271,6 +277,7 @@ export class DefaultValidator extends ASTValidatorBase {
                     type: 'data',
                     name: node.name,
                     parentTable: this._currentTable,
+                    location: this._lastLocation,
                     references: 0,
                     varType: node.varType,
                     arraySizes: node.arraySizes,
@@ -285,8 +292,8 @@ export class DefaultValidator extends ASTValidatorBase {
                 }
 
                 // Shadowed data members
-                const shadowedEntries = this.lookupShadowedDataMembers(node.name, this._currentTable.getParentEntry())
-                    .filter(e => e.parentTable !== this._currentTable);
+                const shadowedEntries = this.lookupShadowedDataMembers(node.name, parentEntry)
+                    .filter(e => e.parentTable !== this._currentTable && e.visibility === 'public');
                 shadowedEntries.forEach(e => this.warning(`Shadowed data member '${e.name}'.`));
                 break;
             }
@@ -295,6 +302,7 @@ export class DefaultValidator extends ASTValidatorBase {
                     type: 'local',
                     name: node.name,
                     parentTable: this._currentTable,
+                    location: this._lastLocation,
                     references: 0,
                     varType: node.varType,
                     arraySizes: node.arraySizes
@@ -311,7 +319,7 @@ export class DefaultValidator extends ASTValidatorBase {
                 const parentClass = this.getCurrentClassEntry();
                 if (parentClass) {
                     const shadowedEntries = this.lookupShadowedDataMembers(node.name, parentClass)
-                        .filter(e => e.parentTable === this._currentTable.getParentTable());
+                        .filter(e => e.parentTable === parentClass.symbolTable || e.visibility === 'public');
                     shadowedEntries.forEach(e => this.warning(`Shadowed data member '${e.name}'.`));
                 }
                 break;
@@ -413,11 +421,19 @@ export class DefaultValidator extends ASTValidatorBase {
                 return false;
             }
         } else {
+            // Query list of possible functions
+            const currentClass = this.getCurrentClassEntry();
+            if (currentClass) {
+                funcEntries = this.lookupShadowedFunctionMembers(node.identifier, currentClass)
+                    .filter(e => e.parentTable === currentClass.symbolTable || e.visibility === 'public');
+            } else {
+                funcEntries = this._currentTable.lookupMultiple(node.identifier, true)
+                    .filter(e => e.type === 'function');
+            }
+
             // Check function exists
-            funcEntries = this._currentTable.lookupMultiple(node.identifier, true)
-                .filter(e => e.type === 'function');
             if (funcEntries.length <= 0) {
-                this.error(`Reference to undeclared function '${node.identifier}'.`);
+                this.error(`Reference to undeclared or inaccessible function '${node.identifier}'.`);
                 return false;
             }
         }
@@ -618,13 +634,14 @@ export class DefaultValidator extends ASTValidatorBase {
         return true;
     }
 
-    private lookupShadowedFunctionMembers(name: string, symbolTableEntry: SymbolTableEntry) {
+    private lookupShadowedFunctionMembers(name: string, symbolTableEntry: SymbolTableEntry, skipDerivedClass: boolean = false) {
         const baseClassFunctions = symbolTableEntry.inheritanceList
             .map(c => symbolTableEntry.symbolTable.getParentTable().lookup(c))
             .reduce((arr, c) => [...arr, ...this.lookupShadowedFunctionMembers(name, c)], []);
         return [
-            ...symbolTableEntry.symbolTable.lookupMultiple(name)
-                .filter(s => s.type === 'function'),
+            ...(!skipDerivedClass ?
+                symbolTableEntry.symbolTable.lookupMultiple(name)
+                .filter(s => s.type === 'function') : []),
             ...baseClassFunctions
         ];
     }
@@ -840,6 +857,7 @@ export class DefaultValidator extends ASTValidatorBase {
                 type: 'parameter',
                 name: p.name,
                 parentTable: this._currentTable,
+                location: p.location,
                 references: 0,
                 varType: p.varType,
                 arraySizes: p.arraySizes
@@ -848,12 +866,12 @@ export class DefaultValidator extends ASTValidatorBase {
         return true;
     }
 
-    private error(str: string) {
-        this._error(`${this._lastLocation?.toString() || ''} ${str}`);
+    private error(str: string, location?: SourceLocation) {
+        this._error(`${(location || this._lastLocation)?.toString() || ''} ${str}`);
     }
 
-    private warning(str: string) {
-        this._warning(`${this._lastLocation?.toString() || ''} ${str}`);
+    private warning(str: string, location?: SourceLocation) {
+        this._warning(`${(location || this._lastLocation)?.toString() || ''} ${str}`);
     }
 
     private identifierLookup(name: string, symbolTable: SymbolTable = this._currentTable) {
@@ -863,7 +881,8 @@ export class DefaultValidator extends ASTValidatorBase {
 
         const classEntry = this.getCurrentClassEntry(symbolTable);
         if (classEntry) {
-            const members = this.lookupShadowedMembers(name, classEntry);
+            const members = this.lookupShadowedMembers(name, classEntry)
+                .filter(e => e.parentTable === classEntry.symbolTable || e.visibility === 'public');
             return members[0];
         }
 

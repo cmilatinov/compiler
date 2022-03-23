@@ -1,11 +1,13 @@
 import { ASTNode } from './ast-validator';
 
 import * as LibUtils from '../lib/utils';
+import { SourceLocation } from './tokenizer.js';
 
 export interface SymbolTableEntry {
     type: 'class' | 'function' | 'data' | 'local' | 'parameter';
     name: string;
     parentTable: SymbolTable;
+    location: SourceLocation;
     references: number;
 
     // Class / Function

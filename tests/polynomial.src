@@ -76,8 +76,8 @@ func main() -> void
   while(counter <= 10)
   {
     write(counter);
-    write(f1.evaluate(counter));
-    write(f2.evaluate(counter));
+    //write(f1.evaluate(counter));
+    //write(f2.evaluate(counter));
   };
 }
 /*

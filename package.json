@@ -3,11 +3,16 @@
     "version": "1.0.0",
     "scripts": {
         "build-parser": "rm -rf bin && tsc --project tsconfig.json && pkg ./bin/js/parser/parser.js -t node16-win-x64 -o ./bin/parserdriver.exe --options \"no-deprecation\"",
-        "parser": "node ./bin/js/parser/parser.js ./tests/main4.src -g ./grammars/example6.grm --parse-table",
+        "parser": "ts-node-dev --project tsconfig.json --transpile-only ./src/parser/parser.ts ./tests/main3.src --parse-table",
+
         "build-ast": "rm -rf bin && tsc --project tsconfig.json && pkg ./bin/js/ast/ast.js -t node16-win-x64 -o ./bin/astdriver.exe --options \"no-deprecation\"",
-        "ast": "node ./bin/js/ast/ast.js ./tests/main3.src -g ./grammars/example6.grm --parse-table",
+        "ast": "ts-node-dev --project tsconfig.json --transpile-only ./src/ast/ast.ts ./tests/main3.src",
+
         "build-semantic-analyzer": "rm -rf bin && tsc --project tsconfig.json && pkg ./bin/js/semantic-analyzer/semantic-analyzer.js -t node16-win-x64 -o ./bin/semanticanalyzerdriver.exe --options \"no-deprecation\"",
-        "semantic-analyzer": "node ./bin/js/semantic-analyzer/semantic-analyzer.js  ./tests/main5.src"
+        "semantic-analyzer": "ts-node-dev --project tsconfig.json --transpile-only ./src/semantic-analyzer/semantic-analyzer.ts ./tests/main5.src",
+
+        "build-compiler": "rm -rf bin && tsc --project tsconfig.json && pkg ./bin/js/compiler/compiler.js -t node16-win-x64 -o ./bin/compilerdriver.exe --options \"no-deprecation\"",
+        "compiler": "ts-node-dev --project tsconfig.json --transpile-only ./src/compiler/compiler.ts ./tests/polynomial.src"
     },
     "dependencies": {
         "@types/command-line-args": "^5.2.0",
@@ -20,6 +25,7 @@
         "lodash": "^4.17.21",
         "pkg": "^5.5.2",
         "ts-node": "^10.5.0",
+        "ts-node-dev": "^1.1.8",
         "typescript": "^4.5.5"
     }
 }

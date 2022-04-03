@@ -1,13 +1,12 @@
 struct BASE {
-    public let a: float;
-	public let b: float;
+    public let a: integer;
+	public let b: integer;
 	public func test() -> void;
-	public func test(a: integer) -> void;
 	public func someFunction(x: BASE) -> float;
 };
 
 struct DERIVED inherits BASE {
-    public let c: float;
+    public let c: integer;
     public func someFunction(x: BASE) -> float;
 };
 
@@ -34,7 +33,7 @@ func main() -> void {
     let abc: integer;
     abc = 10;
     result[0].someFunction(test);
-    write(result[0]);
-    read(result);
+    write(result[0].a);
+    read(abc);
     return (result[abc * 3].test());
 }

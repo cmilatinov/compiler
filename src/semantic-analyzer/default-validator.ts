@@ -173,14 +173,12 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Check for overridden function declared in base class
         const classEntry = this.getCurrentClassEntry();
-        if (classEntry) {
-            const overriddenFunc = this.lookupShadowedFunctionMembers(node.name, classEntry, true)
-                .filter(e => e.visibility === 'public');
-            if (overriddenFunc.length > 0) {
-                overriddenFunc[0].references++;
-                const baseClass = this.getCurrentClassEntry(overriddenFunc[0].symbolTable);
-                this.warning(`Member function overrides '${Utils.stringifyFunction(node)}' declared in base class '${baseClass.name}'.`);
-            }
+        const overriddenFunc = this.lookupShadowedFunctionMembers(node.name, classEntry, true)
+            .filter(e => e.visibility === 'public');
+        if (overriddenFunc.length > 0) {
+            overriddenFunc[0].references++;
+            const baseClass = this.getCurrentClassEntry(overriddenFunc[0].symbolTable);
+            this.warning(`Member function overrides '${Utils.stringifyFunction(node)}' declared in base class '${baseClass.name}'.`);
         }
 
         // Shadowed data members
@@ -205,7 +203,7 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Add function parameters to symbol table
         this._currentTable = symbolTable;
-        this.visitParameters(node.parameters);
+        this.visitParameters(node.parameters, classEntry);
 
         return true;
     }
@@ -407,6 +405,7 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Increment references
         varEntry.references++;
+        node.symbolEntry = varEntry;
         return varEntry;
     }
 
@@ -470,6 +469,7 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Increment references
         funcEntry.references++;
+        node.symbolEntry = funcEntry;
         return funcEntry;
     }
 
@@ -513,6 +513,7 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Increment references
         varEntry.references++;
+        node.symbolEntry = varEntry;
         return varEntry;
     }
 
@@ -587,6 +588,14 @@ export class DefaultValidator extends ASTValidatorBase {
             return false;
         }
 
+        // Check expression type is integer
+        const integerType = { varType: 'integer', arraySizes: [] };
+        if (!Utils.typeEquals(expressionType, integerType)) {
+            this.error(`Read statement argument must evaluate to 'integer', ` +
+                `instead got '${Utils.stringifyType(expressionType)}'.`);
+            return false;
+        }
+
         // Check expression not lvalue
         if (!Utils.isLValue(node.expression)) {
             this.error(`Read statement argument must be a modifiable lvalue.`);
@@ -597,17 +606,17 @@ export class DefaultValidator extends ASTValidatorBase {
     }
 
     private visitWriteStatement(node: ASTNode) {
-        const voidType = { varType: 'void', arraySizes: [] };
-
         // Check expression type valid
         const expressionType = this.getExpressionType(node.expression);
         if (!expressionType) {
             return false;
         }
 
-        // Check expression type not void
-        if (Utils.typeEquals(expressionType, voidType)) {
-            this.error(`Write statement argument cannot evaluate to type 'void'.`);
+        // Check expression type is integer
+        const integerType = { varType: 'integer', arraySizes: [] };
+        if (!Utils.typeEquals(expressionType, integerType)) {
+            this.error(`Write statement argument must evaluate to 'integer', ` +
+                `instead got '${Utils.stringifyType(expressionType)}'.`);
             return false;
         }
 
@@ -845,7 +854,25 @@ export class DefaultValidator extends ASTValidatorBase {
         return varEntry;
     }
 
-    private visitParameters(parameters: ASTNode[]) {
+    private visitParameters(parameters: ASTNode[], parentClassEntry?: SymbolTableEntry) {
+        if (parentClassEntry) {
+            const duplicate = this.identifierLookup('this');
+            if (duplicate && duplicate.type !== 'data') {
+                this.error(`Multiply declared identifier '${duplicate.name}'.`);
+                return false;
+            }
+
+            this._currentTable.insert({
+                type: 'parameter',
+                name: 'this',
+                parentTable: this._currentTable,
+                location: this._lastLocation,
+                references: 1,
+                varType: parentClassEntry.name,
+                arraySizes: []
+            }, true);
+        }
+
         for (let p of parameters) {
             const duplicate = this.identifierLookup(p.name);
             if (duplicate && duplicate.type !== 'data') {

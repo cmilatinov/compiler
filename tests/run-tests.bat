@@ -1,6 +1,9 @@
 @echo off
-semanticanalyzerdriver main1.src
-semanticanalyzerdriver main2.src
-semanticanalyzerdriver main3.src
-semanticanalyzerdriver main4.src
-semanticanalyzerdriver main5.src
+compilerdriver main1.src
+compilerdriver main2.src
+compilerdriver main3.src
+compilerdriver main5.src
+compilerdriver main6.src
+compilerdriver polynomial.src
+compilerdriver bubblesort.src
+compilerdriver simplemain.src

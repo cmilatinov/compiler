@@ -68,12 +68,14 @@ export function isLValue(expression) {
         return false;
     }
 
-    // Check left expression ends with identifier or index expression
-    while (expression.chainedExpression) {
+    // Check left expression doesn't have function call
+    while (expression) {
+        if (expression.type === 'FunctionCallExpression')
+            return false;
         expression = expression.chainedExpression;
     }
 
-    return expression.type !== 'FunctionCallExpression';
+    return true;
 }
 
 export function formatType(type: string) {

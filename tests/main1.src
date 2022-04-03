@@ -10,5 +10,4 @@ struct RETURN_TYPES {
 func main() -> void {
     let a: EMPTY;
     let b: RETURN_TYPES;
-    return (0);
 }

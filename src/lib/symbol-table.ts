@@ -1,7 +1,7 @@
 import { ASTNode } from './ast-validator';
 
 import * as LibUtils from '../lib/utils';
-import { SourceLocation } from './tokenizer.js';
+import { SourceLocation } from './tokenizer';
 
 export interface SymbolTableEntry {
     type: 'class' | 'function' | 'data' | 'local' | 'parameter';
@@ -10,11 +10,18 @@ export interface SymbolTableEntry {
     location: SourceLocation;
     references: number;
 
+    // Memory Allocation
+    label?: string;
+    offset?: number;
+    size?: number;
+
     // Class / Function
+    returnValueOffset?: number;
     symbolTable?: SymbolTable;
 
     // Class
-    inheritanceList?: string[],
+    inheritanceList?: string[];
+    baseClassOffsets?: number[];
 
     // Variable / Class member
     visibility?: 'private' | 'public';
@@ -39,7 +46,7 @@ export class SymbolTable {
         this._table = [];
     }
 
-    public lookup(name: string) {
+    public lookup(name: string): SymbolTableEntry {
         const result = this._table.find(e => e.name === name);
         if (result)
             return result;
@@ -100,6 +107,12 @@ export class SymbolTable {
                 entry['Array Sizes'] = e.arraySizes.map(s => Number(s));
             if (e.inheritanceList)
                 entry['Inheritance List'] = e.inheritanceList;
+            if (e.label)
+                entry['Label'] = e.label;
+            if (e.size !== undefined)
+                entry['Size'] = e.size;
+            if (e.offset !== undefined)
+                entry['Offset'] = e.offset;
             if (e.symbolTable)
                 entry['Symbol Table'] = `[Table: ${e.symbolTable.getName()}]`;
             entry['Reference Count'] = e.references;

@@ -2,9 +2,10 @@ import commandLineArgs from 'command-line-args';
 import * as fs from 'fs';
 
 import { commandLineOptions, printHelp } from './cli';
-import { Grammar, GrammarFactory } from '../lib/grammar';
+import { Grammar, GrammarFactory } from '../lib/grammar/grammar';
 import DefaultGrammar from '../lib/default-grammar';
 import * as Utils from './utils';
+import { GrammarParserLL1 } from '../lib/grammar/parsers/grammar-parser-ll1';
 
 main();
 
@@ -34,9 +35,10 @@ function main() {
 
     // Grammar
     const grammar: Grammar = options.grammar ? GrammarFactory.fromFile(options.grammar) : GrammarFactory.fromString(DefaultGrammar);
+    const grammarParser = new GrammarParserLL1(grammar);
 
     // Check LL(1)
-    if (!grammar.isLL1()) {
+    if (!grammarParser.isLL1()) {
         console.log('[ERROR]: Given grammar is not LL(1)!\n');
         console.log('Ensure that the supplied grammar is in LL(1) form, without any left recursions or ambiguities.');
         return;
@@ -56,7 +58,7 @@ function main() {
         process.stdout.write(str);
         fs.writeSync(outputErrorFile, str);
     };
-    const root = options.input ? grammar.parseFile(options.input, printErr) : grammar.parseString(options['inline-input'], printErr);
+    const root = options.input ? grammarParser.parseFile(options.input, printErr) : grammarParser.parseString(options['inline-input'], printErr);
 
     // Print parse table
     if (options['parse-table'] !== undefined) {
@@ -66,7 +68,7 @@ function main() {
             console.log('Ensure that the file is not being used by another process.');
             return;
         }
-        grammar.printParseTable(str => fs.writeSync(outputTableFile, str));
+        grammarParser.printParseTable(str => fs.writeSync(outputTableFile, str));
         fs.closeSync(outputTableFile);
     }
 
@@ -80,7 +82,7 @@ function main() {
     }
 
     // Generate & Print AST
-    const ast = grammar.createAST(root);
+    const ast = grammarParser.createAST(root);
     Utils.printAST(ast, str => fs.writeSync(outputFile, str));
 
     // Close files

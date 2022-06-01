@@ -1,11 +1,13 @@
 import commandLineArgs from 'command-line-args';
 import * as fs from 'fs';
 
-import { GrammarFactory } from '../lib/grammar';
+import { GrammarFactory } from '../lib/grammar/grammar';
 import DefaultGrammar from '../lib/default-grammar';
 import { commandLineOptions, printHelp } from './cli';
 import { DefaultValidator } from '../semantic-analyzer/default-validator';
 import { CodeGenerator } from './code-generator';
+import { GrammarParserType } from '../lib/grammar/grammar-parser';
+import { GrammarParserFactory } from '../lib/grammar/grammar-parser-factory';
 
 function main() {
 
@@ -37,12 +39,13 @@ function main() {
     }
 
     // Parsing
+    const grammarParser = GrammarParserFactory.create(GrammarParserType.LL1, grammar);
     const printErr = str => {
         const error = `[ERROR]: ${str}\n`;
         process.stdout.write(error);
         fs.writeSync(outputErrorFile, error);
     };
-    const derivation = options.input ? grammar.parseFile(options.input, printErr) : grammar.parseString(options['inline-input'], printErr);
+    const derivation = options.input ? grammarParser.parseFile(options.input, printErr) : grammarParser.parseString(options['inline-input'], printErr);
     if (!derivation) {
         console.log(`\n[ERROR]: The input source file or string contains one or more syntax errors.\n`);
         console.log('Modify the source code to fix the aforementioned syntax errors and attempt to validate it again.');
@@ -59,7 +62,7 @@ function main() {
     }
 
     // Generate AST
-    const ast = grammar.createAST(derivation);
+    const ast = grammarParser.createAST(derivation);
 
     // Validate AST
     const printWarning = str => {

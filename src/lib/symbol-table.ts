@@ -1,4 +1,4 @@
-import { ASTNode } from './ast-validator';
+import { ASTNode } from './ast/ast-node';
 
 import * as LibUtils from '../lib/utils';
 import { SourceLocation } from './tokenizer';

@@ -4,7 +4,9 @@
         "module": "commonjs",
         "moduleResolution": "Node",
         "outDir": "bin/js",
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "experimentalDecorators": true,
+        "resolveJsonModule": true
     },
     "include": ["src/**/*"]
 }

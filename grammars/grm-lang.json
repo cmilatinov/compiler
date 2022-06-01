@@ -1,0 +1,163 @@
+[
+    {
+        "LHS": "Grammar",
+        "RHS": [
+            "ProductionList"
+        ],
+        "reduction": "$$ = $1"
+    },
+    {
+        "LHS": "ProductionList",
+        "RHS": [
+            "ProductionList",
+            "Production"
+        ],
+        "reduction": "$$ = [...$1, $2]"
+    },
+    {
+        "LHS": "ProductionList",
+        "RHS": [
+            "Production"
+        ],
+        "reduction": "$$ = [$1]"
+    },
+    {
+        "LHS": "Production",
+        "RHS": [
+            "NonTerminalProduction"
+        ],
+        "reduction": "$$ = $1"
+    },
+    {
+        "LHS": "Production",
+        "RHS": [
+            "TerminalProduction"
+        ],
+        "reduction": "$$ = $1"
+    },
+    {
+        "LHS": "NonTerminalProduction",
+        "RHS": [
+            "NonTerminal",
+            "'->'",
+            "RuleList",
+            "OptReductionAction",
+            "';'"
+        ],
+        "reduction": "$$ = { LHS: $1, RHS: $3, reduction: $4 }"
+    },
+    {
+        "LHS": "TerminalProduction",
+        "RHS": [
+            "Terminal",
+            "'->'",
+            "Regex",
+            "';'"
+        ],
+        "reduction": "$$ = { LHS: $1, RHS: [$3] }"
+    },
+    {
+        "LHS": "RuleList",
+        "RHS": [
+            "RuleList",
+            "'|'",
+            "SymbolList"
+        ],
+        "reduction": "$$ = [...$1, $3]"
+    },
+    {
+        "LHS": "RuleList",
+        "RHS": [
+            "SymbolList"
+        ],
+        "reduction": "$$ = [$1]"
+    },
+    {
+        "LHS": "SymbolList",
+        "RHS": [
+            "SymbolList",
+            "Symbol"
+        ],
+        "reduction": "$$ = [...$1, $2]"
+    },
+    {
+        "LHS": "SymbolList",
+        "RHS": [
+            "ε"
+        ],
+        "reduction": "$$ = []"
+    },
+    {
+        "LHS": "NonTerminal",
+        "RHS": [
+            "'non_terminal_literal'"
+        ],
+        "reduction": "$$ = $1.value"
+    },
+    {
+        "LHS": "Terminal",
+        "RHS": [
+            "'terminal_literal'"
+        ],
+        "reduction": "$$ = $1.value"
+    },
+    {
+        "LHS": "Symbol",
+        "RHS": [
+            "'non_terminal_literal'"
+        ],
+        "reduction": "$$ = $1.value"
+    },
+    {
+        "LHS": "Symbol",
+        "RHS": [
+            "'terminal_literal'"
+        ],
+        "reduction": "$$ = $1.value"
+    },
+    {
+        "LHS": "Regex",
+        "RHS": [
+            "'regex_literal'"
+        ],
+        "reduction": "$$ = $1.value.substring(1, $1.value.length - 1)"
+    },
+    {
+        "LHS": "OptReductionAction",
+        "RHS": [
+            "'action_literal'"
+        ],
+        "reduction": "$$ = $1.value"
+    },
+    {
+        "LHS": "OptReductionAction",
+        "RHS": [
+            "ε"
+        ],
+        "reduction": "$$ = undefined"
+    },
+    {
+        "LHS": "'action_literal'",
+        "RHS": [
+            "{{[\\s\\S]*?}}"
+        ]
+    },
+    {
+        "LHS": "'non_terminal_literal'",
+        "RHS": [
+            "(?:[a-zA-Z]+|ε)"
+        ]
+    },
+    {
+        "LHS": "'terminal_literal'",
+        "RHS": [
+            "'[^']*'"
+        ]
+    },
+    {
+        "LHS": "'regex_literal'",
+        "RHS": [
+            "\\/(?![*+?])(?:[^\\r\\n\\[/\\\\]|\\\\.|\\[(?:[^\\r\\n\\]\\\\]|\\\\.)*\\])+\\/"
+        ]
+    }
+]

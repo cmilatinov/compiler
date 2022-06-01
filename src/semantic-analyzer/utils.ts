@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 
-import { ASTNode } from '../lib/ast-validator';
+import { ASTNode } from '../lib/ast/ast-node';
+import { DEFAULT_PROCESSOR, StringProcessor } from '../lib/string-processor';
 
 export function functionEquals(func1, func2) {
     if (!func1 || !func2)
@@ -89,7 +90,7 @@ export function formatType(type: string) {
     }
 }
 
-export function printSymbolTable(table, print: (str: string) => void = str => process.stdout.write(str)) {
+export function printSymbolTable(table, print: StringProcessor = DEFAULT_PROCESSOR) {
     print(table.toString());
     print('\n');
     table.getEntries().forEach(e => {

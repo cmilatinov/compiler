@@ -1,0 +1,303 @@
+Program -> SourceElementList {{ $$ = { type: $0, sourceElements: $1 } }} ;
+
+SourceElementList -> SourceElementList SourceElement {{ $$ = [...$1, $2] }} ;
+SourceElementList -> {{ $$ = [] }} ;
+
+SourceElement -> FunctionDeclaration | Statement {{ $$ = $1 }} ;
+
+FunctionDeclaration -> 'def' 'id' '(' OptFormalParameterList ')' OptReturnTypeSpecifier '{' StatementList '}'
+{{ $$ = { type: $0, location: $1.location, name: $2.value, params: $4, returnType: $6, body: $8 } }} ;
+
+TypeSpecifier -> ':' Type {{ $$ = $2 }} ;
+
+Type -> BaseType OptTypeModifier OptReference {{ $$ = { type: 'TypeSpecifier', value: $1.value, ...$2, ...$3 } }} ;
+
+BaseType -> 'id' | 'bool' | 'int' | 'float' | 'string' {{ $$ = $1 }} ;
+
+OptReference -> '&&' {{ $$ = { referenceLevel: 2 } }} ;
+OptReference -> '&' {{ $$ = { referenceLevel: 1 } }} ;
+OptReference -> {{ $$ = undefined }} ;
+
+OptTypeModifier -> PointerLevel | ArraySizeList {{ $$ = $1 }} ;
+OptTypeModifier -> {{ $$ = undefined }} ;
+
+PointerLevel -> PointerLevel '*' {{ $$ = { pointerLevel: $1.pointerLevel + 1 } }} ;
+PointerLevel -> '*' {{ $$ = { pointerLevel: 1 } }} ;
+
+ArraySizeList -> ArraySizeList ArraySize {{ $$ = { arraySizes: [...$1.arraySizes, $2] } }} ;
+ArraySizeList -> ArraySize {{ $$ = { arraySizes: [$1] } }} ;
+
+ArraySize -> '[' 'int_literal' ']' {{ $$ = $2.value }} ;
+ArraySize -> '[' ']' {{ $$ = 0 }} ;
+
+ReturnType -> Type {{ $$ = $1 }} ;
+ReturnType -> 'void' {{ $$ = { type: 'TypeSpecifier', value: $1.value } }} ;
+
+OptTypeSpecifier -> TypeSpecifier {{ $$ = $1 }} ;
+OptTypeSpecifier -> {{ $$ = undefined }} ;
+
+ReturnTypeSpecifier -> '->' ReturnType {{ $$ = $2 }} ;
+
+OptReturnTypeSpecifier -> ReturnTypeSpecifier {{ $$ = $1 }} ;
+OptReturnTypeSpecifier -> {{ $$ = undefined }} ;
+
+FormalParameterList -> FormalParameterList ',' 'id' OptTypeSpecifier
+{{ $$ = [...$1, { type: 'Parameter', location: $3.location, identifier: $3.value, typeSpecifier: $4 }] }} ;
+FormalParameterList -> 'id' OptTypeSpecifier
+{{ $$ = [{ type: 'Parameter', location: $1.location, identifier: $1.value, typeSpecifier: $2 }] }} ;
+
+OptFormalParameterList -> FormalParameterList {{ $$ = $1 }} ;
+OptFormalParameterList -> {{ $$ = [] }} ;
+
+Statement -> BlockStatement {{ $$ = $1 }} ;
+Statement -> ExpressionStatement {{ $$ = $1 }} ;
+Statement -> VariableStatement {{ $$ = $1 }} ;
+Statement -> EmptyStatement {{ $$ = $1 }} ;
+Statement -> IfStatement {{ $$ = $1 }} ;
+Statement -> IterationStatement {{ $$ = $1 }} ;
+Statement -> ContinueStatement {{ $$ = $1 }} ;
+Statement -> BreakStatement {{ $$ = $1 }} ;
+Statement -> ReturnStatement {{ $$ = $1 }} ;
+Statement -> LabelledStatement {{ $$ = $1 }} ;
+Statement -> SwitchStatement {{ $$ = $1 }} ;
+Statement -> ThrowStatement {{ $$ = $1 }} ;
+Statement -> TryStatement {{ $$ = $1 }} ;
+
+StatementList -> StatementList Statement {{ $$ = [...$1, $2] }} ;
+StatementList -> {{ $$ = [] }} ;
+
+BlockStatement -> '{' StatementList '}' {{ $$ = { type: $0, location: $1.location, statements: $2 } }} ;
+
+EmptyStatement -> ';' {{ $$ = { type: $0, location: $1.location } }} ;
+
+ExpressionStatement -> Expression ';' {{ $$ = { type: $0, expression: $1 } }} ;
+
+IfStatement -> 'if' '(' Expression ')' Statement
+{{ $$ = { type: $0, location: $1.location, condition: $3, ifBody: $5 } }} ;
+IfStatement -> 'if' '(' Expression ')' Statement 'else' Statement
+{{ $$ = { type: $0, location: $1.location, condition: $3, ifBody: $5, elseBody: $7 } }} ;
+
+IterationStatement -> 'do' Statement 'while' '(' Expression ')'
+{{ $$ = { type: 'DoWhileStatement', location: $1.location, condition: $5, body: $2 } }} ;
+IterationStatement -> 'while' '(' Expression ')' Statement
+{{ $$ = { type: 'WhileStatement', location: $1.location, condition: $3, body: $5 } }} ;
+IterationStatement -> 'for' '(' OptExpression ';' OptExpression ';' OptExpression ')' Statement
+{{ $$ = { type: 'ForStatement', location: $1.location, expressions: [$3, $5, $7], body: $9 } }} ;
+
+ContinueStatement -> 'continue' OptIdentifier ';' {{ $$ = { type: $0, location: $1.location, identifier: $2 } }} ;
+
+OptIdentifier -> 'id' {{ $$ = $1.value }} ;
+OptIdentifier -> {{ $$ = undefined }} ;
+
+BreakStatement -> 'break' OptIdentifier ';' {{ $$ = { type: $0, location: $1.location, identifier: $2 } }} ;
+
+ReturnStatement -> 'return' OptExpression ';' {{ $$ = { type: $0, location: $1.location, expression: $2 } }} ;
+
+SwitchStatement -> 'switch' '(' Expression ')' CaseBlock
+{{ $$ = { type: $0, location: $1.location, expression: $3, clauses: $5 } }} ;
+
+CaseBlock -> '{' CaseClauses '}' {{ $$ = $1 }} ;
+CaseBlock -> '{' CaseClauses DefaultClause CaseClauses '}' {{ $$ = [...$1, $2, ...$3] }} ;
+
+CaseClauses -> CaseClauses CaseClause {{ $$ = [...$1, $2] }} ;
+CaseClauses -> {{ $$ = [] }} ;
+
+CaseClause -> 'case' Expression ':' StatementList
+{{ $$ = { type: $0, location: $1.location, expression: $2, statements: $4 } }} ;
+
+DefaultClause -> 'default' ':' StatementList
+{{ $$ = { type: $0, location: $1.location, statements: $4 } }} ;
+
+LabelledStatement -> 'id' ':' Statement
+{{ $$ = { type: $0, location: $1.location, label: $1.value, statement: $3 } }} ;
+
+ThrowStatement -> 'throw' Expression ';'
+{{ $$ = { type: $0, location: $1.location, expression: $2 } }} ;
+
+TryStatement -> 'try' Statement Catch
+{{ $$ = { type: $0, location: $1.location, tryBody: $2, catchBody: $3 } }} ;
+TryStatement -> 'try' Statement Finally
+{{ $$ = { type: $0, location: $1.location, tryBody: $2, finallyBody: $3 } }} ;
+TryStatement -> 'try' Statement Catch Finally
+{{ $$ = { type: $0, location: $1.location, tryBody: $2, catchBody: $3, finallyBody: $4 } }} ;
+
+Catch -> 'catch' '(' 'id' OptTypeSpecifier ')' Statement
+{{ $$ = { type: $0, location: $1.location, variable: $3.value, variableType: $4, statement: $6 } }} ;
+
+Finally -> 'finally' Statement
+{{ $$ = { type: $0, location: $1.location, statement: $6 } }} ;
+
+Expression -> Expression ',' AssignmentExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: ',', left: $1, right: $3 } }} ;
+Expression -> AssignmentExpression {{ $$ = $1 }} ;
+
+OptExpression -> Expression {{ $$ = $1 }} ;
+OptExpression -> {{ $$ = undefined }} ;
+
+AssignmentExpression -> LeftHandSideExpression '??=' AssignmentExpression
+                      | LeftHandSideExpression '<<=' AssignmentExpression
+                      | LeftHandSideExpression '>>=' AssignmentExpression
+                      | LeftHandSideExpression '&=' AssignmentExpression
+                      | LeftHandSideExpression '^=' AssignmentExpression
+                      | LeftHandSideExpression '|=' AssignmentExpression
+                      | LeftHandSideExpression '*=' AssignmentExpression
+                      | LeftHandSideExpression '/=' AssignmentExpression
+                      | LeftHandSideExpression '%=' AssignmentExpression
+                      | LeftHandSideExpression '+=' AssignmentExpression
+                      | LeftHandSideExpression '-=' AssignmentExpression
+                      | LeftHandSideExpression '=' AssignmentExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+AssignmentExpression -> ConditionalExpression {{ $$ = $1 }} ;
+
+ConditionalExpression -> NullCoalescingExpression '?' AssignmentExpression ':' AssignmentExpression
+{{ $$ = { type: 'TernaryExpression', location: $1.location, condition: $1, trueExpression: $3, falseExpression: $5 } }} ;
+ConditionalExpression -> NullCoalescingExpression {{ $$ = $1 }} ;
+
+NullCoalescingExpression -> NullCoalescingExpression '??' LogicalORExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+NullCoalescingExpression -> LogicalORExpression {{ $$ = $1 }};
+
+LogicalORExpression -> LogicalORExpression '||' LogicalANDExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+LogicalORExpression -> LogicalANDExpression {{ $$ = $1 }} ;
+
+LogicalANDExpression -> LogicalANDExpression '&&' BitwiseORExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+LogicalANDExpression -> BitwiseORExpression {{ $$ = $1 }} ;
+
+BitwiseORExpression -> BitwiseORExpression '|' BitwiseXORExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+BitwiseORExpression -> BitwiseXORExpression {{ $$ = $1 }} ;
+
+BitwiseXORExpression -> BitwiseXORExpression '^' BitwiseANDExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+BitwiseXORExpression -> BitwiseANDExpression {{ $$ = $1 }} ;
+
+BitwiseANDExpression -> BitwiseANDExpression '&' EqualityExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+BitwiseANDExpression -> EqualityExpression {{ $$ = $1 }} ;
+
+EqualityExpression -> EqualityExpression '==' RelationalExpression
+                    | EqualityExpression '!=' RelationalExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+EqualityExpression -> RelationalExpression {{ $$ = $1 }} ;
+
+RelationalExpression -> RelationalExpression '<=' ShiftExpression
+                      | RelationalExpression '>=' ShiftExpression
+                      | RelationalExpression '<' ShiftExpression
+                      | RelationalExpression '>' ShiftExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+RelationalExpression -> ShiftExpression {{ $$ = $1 }} ;
+
+ShiftExpression -> ShiftExpression '>>' AdditiveExpression
+                 | ShiftExpression '<<' AdditiveExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+ShiftExpression -> AdditiveExpression {{ $$ = $1 }} ;
+
+AdditiveExpression -> AdditiveExpression '+' MultiplicativeExpression
+                    | AdditiveExpression '-' MultiplicativeExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+AdditiveExpression -> MultiplicativeExpression {{ $$ = $1 }} ;
+
+MultiplicativeExpression -> MultiplicativeExpression '*' PowerExpression
+                          | MultiplicativeExpression '/' PowerExpression
+                          | MultiplicativeExpression '%' PowerExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+MultiplicativeExpression -> PowerExpression {{ $$ = $1 }} ;
+
+PowerExpression -> PowerExpression '^^' UnaryExpression
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+PowerExpression -> UnaryExpression {{ $$ = $1 }} ;
+
+UnaryExpression -> '++' UnaryExpression
+                 | '--' UnaryExpression
+                 | '+' UnaryExpression
+                 | '-' UnaryExpression
+                 | '!' UnaryExpression
+                 | '~' UnaryExpression
+                 | '&' UnaryExpression
+                 | '*' UnaryExpression
+                 {{ $$ = { type: $0, location: $1.location, operator: $1.value, expression: $2 } }} ;
+UnaryExpression -> PostfixExpression {{ $$ = $1 }} ;
+
+PostfixExpression -> PostfixExpression '++'
+                   | PostfixExpression '--'
+{{ $$ = { type: $0, location: $1.location, operand: $1.value, expression: $2 } }} ;
+PostfixExpression -> LeftHandSideExpression {{ $$ = $1 }} ;
+
+LeftHandSideExpression -> CallExpression | NewExpression {{ $$ = $1 }} ;
+
+ArgumentList -> ArgumentList ',' AssignmentExpression {{ $$ = [...$1, $3] }} ;
+ArgumentList -> AssignmentExpression {{ $$ = [$1] }} ;
+
+Arguments -> '(' ArgumentList ')' {{ $$ = $2 }} ;
+Arguments -> '(' ')' {{ $$ = [] }} ;
+
+CallExpression -> CallExpression '.' 'id'
+                | CallExpression '.?' 'id'
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3.value } }} ;
+CallExpression -> CallExpression '[' Expression ']'
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: '[]', left: $1, right: $3 } }} ;
+CallExpression -> CallExpression Arguments
+{{ $$ = { type: 'FunctionCallExpression', location: $1.location, function: $1, arguments: $2 } }} ;
+CallExpression -> MemberExpression Arguments
+{{ $$ = { type: 'FunctionCallExpression', location: $1.location, function: $1, arguments: $2 } }} ;
+
+NewExpression -> 'new' NewExpression
+{{ $$ = { type: $0, location: $1.location, expression: $2 } }} ;
+NewExpression -> MemberExpression {{ $$ = $1 }} ;
+
+MemberExpression -> 'new' MemberExpression Arguments
+{{ $$ = { type: 'NewExpression', location: $1.location, expression: $2, arguments: $3 } }} ;
+MemberExpression -> MemberExpression '.' 'id'
+                  | MemberExpression '.?' 'id'
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3.value } }} ;
+MemberExpression -> MemberExpression '[' Expression ']'
+{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: '[]', left: $1, right: $3 } }} ;
+MemberExpression -> PrimaryExpression {{ $$ = $1 }} ;
+
+Elision -> Elision ',' {{ $$ = [...$1, { type: $0, location: $2.location }] }} ;
+Elision -> {{ $$ = [] }} ;
+
+ElementList -> ElementList ',' Elision AssignmentExpression {{ $$ = [...$1, ...$3, $4] }} ;
+ElementList -> Elision AssignmentExpression {{ $$ = [...$1, $2] }} ;
+
+ArrayLiteral -> '[' Elision ']' {{ $$ = { type: $0, elements: $2 } }} ;
+ArrayLiteral -> '[' ElementList ']' {{ $$ = { type: $0, elements: $2 } }} ;
+ArrayLiteral -> '[' ElementList ',' Elision ']' {{ $$ = { type: $0, elements: [...$2, ...$4] } }} ;
+
+Literal -> 'string_literal' {{ $$ = { type: 'StringLiteral', location: $1.location, value: $1.value } }} ;
+Literal -> 'float_literal' {{ $$ = { type: 'FloatLiteral', location: $1.location, value: $1.value } }} ;
+Literal -> 'int_literal' {{ $$ = { type: 'IntLiteral', location: $1.location, value: $1.value } }} ;
+Literal -> 'bool_literal' {{ $$ = { type: 'BooleanLiteral', location: $1.location, value: $1.value } }} ;
+Literal -> 'null_literal' {{ $$ = { type: 'NullLiteral', location: $1.location, value: $1.value } }} ;
+Literal -> 'this' {{ $$ = { type: 'ThisLiteral', location: $1.location, value: $1.value } }} ;
+
+PrimaryExpression -> '(' Expression ')' {{ $$ = $2 }} ;
+PrimaryExpression -> ArrayLiteral {{ $$ = $1 }} ;
+PrimaryExpression -> Literal {{ $$ = $1 }} ;
+PrimaryExpression -> 'id' {{ $$ = { type: 'Identifier', location: $1.location, value: $1.value } }} ;
+
+VariableStatement -> VarDeclKeyword VariableDeclarationList ';'
+{{ $$ = { type: $0, location: $1.location, declKeyword: $1.value, declList: $2 } }} ;
+
+VarDeclKeyword -> 'let' | 'const' {{ $$ = $1 }} ;
+
+VariableDeclarationList -> VariableDeclarationList ',' VariableDeclaration {{ $$ = [...$1, $3] }} ;
+VariableDeclarationList -> VariableDeclaration {{ $$ = [$1] }} ;
+
+VariableDeclaration -> 'id' OptTypeSpecifier OptVariableInitializer
+{{ $$ = { type: $0, location: $1.location, name: $1.value, typeSpecifier: $2, variableInitializer: $3 } }} ;
+
+OptVariableInitializer -> VariableInitializer {{ $$ = $1 }} ;
+OptVariableInitializer -> {{ $$ = undefined }} ;
+
+VariableInitializer -> '=' ConditionalExpression {{ $$ = { type: $0, location: $1.location, expression: $2 } }} ;
+
+'int_literal' -> /(?:[1-9][0-9]*|0)/ ;
+'float_literal' -> /[+\-]?(?:[1-9][0-9]*|0)?(?:\.[0-9]*[1-9]|\.0)(?:[eE][+\-]?(?:[1-9][0-9]*|0))?/ ;
+'null_literal' -> /null/ ;
+'bool_literal' -> /(?:true|false)/ ;
+'string_literal' -> /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/ ;
+
+'id' -> /[a-zA-Z][a-zA-Z0-9_]*/ ;

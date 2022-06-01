@@ -1,8 +1,8 @@
-import { ASTNode } from '../lib/ast-validator';
+import { ASTNode } from '../lib/ast/ast-node';
 import { SymbolTable, SymbolTableEntry } from '../lib/symbol-table';
 import { LabelGenerator } from './label-generator';
 import { Register, RegisterAllocator } from './register-allocator';
-import { ASTVisitorBase } from '../lib/ast-visitor';
+import { ASTVisitorBase } from '../lib/ast/ast-visitor';
 
 import * as ASTUtils from '../ast/utils';
 import * as SemanticUtils from '../semantic-analyzer/utils';
@@ -987,4 +987,5 @@ export class CodeGenerator extends ASTVisitorBase {
                 return 'clt';
         }
     }
+
 }

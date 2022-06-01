@@ -1,13 +1,15 @@
 import { Map } from 'immutable';
 
-import { ASTNode, ASTValidatorBase, EventCallback, defaultWarning, defaultError } from '../lib/ast-validator';
+import { StringProcessor } from '../lib/string-processor';
+import { ASTNode } from '../lib/ast/ast-node';
+import { ASTValidator, DEFAULT_ERROR_PROCESSOR, DEFAULT_WARNING_PROCESSOR } from '../lib/ast/ast-validator';
 import { SymbolTable, SymbolTableEntry } from '../lib/symbol-table';
 import { SourceLocation } from '../lib/tokenizer';
 
 import * as ASTUtils from '../ast/utils';
 import * as Utils from './utils';
 
-export class DefaultValidator extends ASTValidatorBase {
+export class DefaultValidator extends ASTValidator {
 
     private readonly _globalTable: SymbolTable;
 
@@ -15,7 +17,7 @@ export class DefaultValidator extends ASTValidatorBase {
     private _isImpl: boolean;
     private _lastLocation: SourceLocation;
 
-    constructor(warning: EventCallback = defaultWarning, error: EventCallback = defaultError) {
+    constructor(warning: StringProcessor = DEFAULT_WARNING_PROCESSOR, error: StringProcessor = DEFAULT_ERROR_PROCESSOR) {
         super(warning, error);
         this._globalTable = this._currentTable = new SymbolTable();
         this._isImpl = false;
@@ -104,7 +106,7 @@ export class DefaultValidator extends ASTValidatorBase {
             existingFunction.implemented = true;
             this._currentTable = existingFunction.symbolTable;
 
-        // Free function
+            // Free function
         } else {
             // Check existing free functions with same name
             const existingFunctions = this._currentTable.lookupMultiple(node.name);
@@ -370,7 +372,7 @@ export class DefaultValidator extends ASTValidatorBase {
             // Go to chained expression
             node = node.chainedExpression;
 
-        } while(node);
+        } while (node);
 
         return {
             varType: result.varType || result.returnType,
@@ -590,8 +592,9 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Check expression type is integer
         const integerType = { varType: 'integer', arraySizes: [] };
-        if (!Utils.typeEquals(expressionType, integerType)) {
-            this.error(`Read statement argument must evaluate to 'integer', ` +
+        const floatType = { varType: 'integer', arraySizes: [] };
+        if (!Utils.typeEquals(expressionType, integerType) && !Utils.typeEquals(expressionType, floatType)) {
+            this.error(`Read statement argument must evaluate to 'integer' or 'float', ` +
                 `instead got '${Utils.stringifyType(expressionType)}'.`);
             return false;
         }
@@ -614,8 +617,9 @@ export class DefaultValidator extends ASTValidatorBase {
 
         // Check expression type is integer
         const integerType = { varType: 'integer', arraySizes: [] };
-        if (!Utils.typeEquals(expressionType, integerType)) {
-            this.error(`Write statement argument must evaluate to 'integer', ` +
+        const floatType = { varType: 'integer', arraySizes: [] };
+        if (!Utils.typeEquals(expressionType, integerType) && !Utils.typeEquals(expressionType, floatType)) {
+            this.error(`Write statement argument must evaluate to 'integer' or 'float', ` +
                 `instead got '${Utils.stringifyType(expressionType)}'.`);
             return false;
         }
@@ -650,7 +654,7 @@ export class DefaultValidator extends ASTValidatorBase {
         return [
             ...(!skipDerivedClass ?
                 symbolTableEntry.symbolTable.lookupMultiple(name)
-                .filter(s => s.type === 'function') : []),
+                    .filter(s => s.type === 'function') : []),
             ...baseClassFunctions
         ];
     }
@@ -722,7 +726,7 @@ export class DefaultValidator extends ASTValidatorBase {
                         if (Utils.typeEquals(leftType, booleanType) && Utils.typeEquals(rightType, booleanType))
                             return booleanType;
 
-                        this.error(`Logical operator '${expression.operator}' must be used on 'boolean' types only, `+
+                        this.error(`Logical operator '${expression.operator}' must be used on 'boolean' types only, ` +
                             `instead got '${Utils.stringifyType(leftType)}' and '${Utils.stringifyType(rightType)}'.`);
                         return undefined;
 

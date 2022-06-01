@@ -1,24 +1,28 @@
-import { ASTNode } from '../lib/ast-validator';
+import { ASTNode } from '../lib/ast/ast-node';
 
-export function printAST(node: ASTNode, print: (str) => void = str => process.stdout.write(str), indent: string = '', last: boolean = true) {
+export function printAST(node: ASTNode, print: (str) => void = str => process.stdout.write(str), indent: string = '', last: number = 2) {
     if (!node || !node.type)
         return;
 
     // Print indent
     print(indent);
 
-    if (last) {
-        print("└───");
-        indent += "    ";
-    } else {
-        print("├───");
-        indent += "│   ";
+    switch (last) {
+        case 0:
+            print("├───");
+            indent += "│   ";
+            break;
+        case 1:
+            print("└───");
+            indent += "    ";
+            break;
     }
 
     // Print node
     let properties = Object.entries(node)
         .filter(([k, v]) =>
             k !== 'type' && (
+                typeof v === 'number' ||
                 typeof v === 'string' ||
                 (Array.isArray(v) && v.length > 0 && typeof v[0] !== 'object')
             ))
@@ -33,7 +37,7 @@ export function printAST(node: ASTNode, print: (str) => void = str => process.st
 
     // Print each child node
     for (let i = 0; i < children.length; i++) {
-        printAST(children[i], print, indent, i == children.length - 1);
+        printAST(children[i], print, indent, i == children.length - 1 ? 1 : 0);
     }
 }
 

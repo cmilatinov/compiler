@@ -6,7 +6,6 @@ import { GrammarParserLR0 } from './parsers/grammar-parser-lr0';
 import { GrammarParserSLR1 } from './parsers/grammar-parser-slr';
 
 export class GrammarParserFactory {
-
     public static create(type: GrammarParserType, grammar: Grammar): GrammarParser {
         switch (type) {
             case GrammarParserType.LL1:
@@ -20,5 +19,4 @@ export class GrammarParserFactory {
         }
         throw new TypeError(`Unsupported grammar parser type ${type}.`);
     }
-
 }

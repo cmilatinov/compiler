@@ -10,7 +10,6 @@ import { StringProcessor } from '../../string-processor';
 import { DerivationNode } from '../grammar-parser';
 
 export class GrammarParserLR {
-
     public static buildCanonicalCollection<T extends LR0Item>(
         ctor: LRItemBuilder<T>,
         grammar: Grammar
@@ -26,16 +25,24 @@ export class GrammarParserLR {
             const state = new GraphState(ctor, grammar, itemSet);
             state.closure();
 
-            const existingState = states.find(s => s.equals(state));
+            const existingState = states.find((s) => s.equals(state));
             if (!existingState) {
                 // Add new state
                 states.push(state);
 
                 // Add the next items to the queue
                 itemStack.push(
-                    ...state.items.toJSON()
-                        .filter(i => !i.isFinal())
-                        .map<StackItem>(i => [state.goto(i.rule.RHS[i.dotIndex]), state, i.rule.RHS[i.dotIndex]])
+                    ...OrderedSet<string>(
+                        state.items
+                            .toJSON()
+                            .filter((i) => !i.isFinal())
+                            .map((i) => i.rule.RHS[i.dotIndex])
+                    )
+                        .toJSON()
+                        .map<StackItem>((s) => {
+                            // console.log(`goto(${states.length - 1}, ${s})`);
+                            return [state.goto(s), state, s];
+                        })
                 );
             }
 
@@ -60,29 +67,44 @@ export class GrammarParserLR {
                 // Accept
                 if (s.items.size === 1) {
                     const item = s.items.toJSON()[0];
-                    if (item.dotIndex > 0 && item.rule.RHS[item.dotIndex - 1] === grammar.getStartSymbol()) {
+                    if (
+                        item.dotIndex > 0 &&
+                        item.rule.RHS[item.dotIndex - 1] === grammar.getStartSymbol()
+                    ) {
                         table.addEntry(i, EOF, new ParseTableAction(ParseTableActionType.ACCEPT));
                         return;
                     }
                 }
 
                 // Reduce
-                const items = s.items.filter(i => i.isFinal()).toJSON();
-                const ruleIndexes = items.map(i => rules.findIndex(r => r.equals(i.rule)));
+                const items = s.items.filter((i) => i.isFinal()).toJSON();
+                const ruleIndexes = items.map((i) => rules.findIndex((r) => r.equals(i.rule)));
                 items.forEach((item, itemIndex) => {
                     const ruleIndex = ruleIndexes[itemIndex];
-                    reduceTerminalSetFn(grammar, item)
-                        .forEach(t => table.addEntry(i, t, new ParseTableAction(ParseTableActionType.REDUCE, ruleIndex)));
+                    reduceTerminalSetFn(grammar, item).forEach((t) =>
+                        table.addEntry(
+                            i,
+                            t,
+                            new ParseTableAction(ParseTableActionType.REDUCE, ruleIndex)
+                        )
+                    );
                 });
             }
 
             // Shift / Goto
-            Object.keys(s.transitions).forEach(t => {
-                const targetStateIndex = collection.states.findIndex(state => state.equals(s.transitions[t]));
-                table.addEntry(i, t, new ParseTableAction(
-                    Grammar.isTerminal(t) ?
-                        ParseTableActionType.SHIFT :
-                        ParseTableActionType.GOTO, targetStateIndex)
+            Object.keys(s.transitions).forEach((t) => {
+                const targetStateIndex = collection.states.findIndex((state) =>
+                    state.equals(s.transitions[t])
+                );
+                table.addEntry(
+                    i,
+                    t,
+                    new ParseTableAction(
+                        Grammar.isTerminal(t)
+                            ? ParseTableActionType.SHIFT
+                            : ParseTableActionType.GOTO,
+                        targetStateIndex
+                    )
                 );
             });
         });
@@ -109,19 +131,23 @@ export class GrammarParserLR {
                     printErr(`${err.message}\n`);
                 }
             }
-        }
+        };
 
         while (stack.length > 0) {
             const element = stack[0];
 
             // Get action from table
             const action: ParseTableAction =
-                typeof element === 'number' ?
-                    parseTable.getAction(element, lookahead.type) :
-                    parseTable.getAction(stack.find(e => typeof e === 'number') as number, element.rule.LHS);
+                typeof element === 'number'
+                    ? parseTable.getAction(element, lookahead.type)
+                    : parseTable.getAction(
+                          stack.find((e) => typeof e === 'number') as number,
+                          element.rule.LHS
+                      );
 
+            // console.log();
             // console.log(lookahead.type);
-            // console.log(stack.map(e => typeof e === 'number' ? e : e.token.type));
+            // console.log(stack.map((e) => (typeof e === 'number' ? e : e.token.type)));
             // console.log(action.toString());
             switch (action.type) {
                 case ParseTableActionType.ACCEPT:
@@ -132,29 +158,39 @@ export class GrammarParserLR {
                     break;
 
                 case ParseTableActionType.SHIFT:
-                    stack.unshift(new DerivationNode(lookahead, []))
+                    stack.unshift(new DerivationNode(lookahead, []));
                     stack.unshift(action.value);
                     fetchNextToken();
                     break;
 
                 case ParseTableActionType.REDUCE:
                     const rule = rules[action.value];
-                    const childrenNodes = stack.splice(0, 2 * rule.RHS.filter(i => i !== EPSILON).length)
+                    const childrenNodes = stack
+                        .splice(0, 2 * rule.RHS.filter((i) => i !== EPSILON).length)
                         .filter((_, i) => i % 2 === 1)
                         .reverse() as DerivationNode[];
-                    stack.unshift(new DerivationNode({
-                        type: rule.LHS,
-                        value: rule.LHS,
-                        location: childrenNodes[0]?.token.location || lookahead.location
-                    }, childrenNodes, rule));
+                    stack.unshift(
+                        new DerivationNode(
+                            {
+                                type: rule.LHS,
+                                value: rule.LHS,
+                                location: childrenNodes[0]?.token.location || lookahead.location
+                            },
+                            childrenNodes,
+                            rule
+                        )
+                    );
                     break;
 
                 case ParseTableActionType.REJECT:
-                    printErr(`Unexpected token "${lookahead.value}".\n`);
+                    printErr(
+                        `${lookahead.location.toString().underline} Unexpected token '${
+                            lookahead.value
+                        }'.\n`
+                    );
                     return null;
             }
         }
         return null;
     }
-
 }

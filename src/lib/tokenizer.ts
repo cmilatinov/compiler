@@ -21,9 +21,9 @@ export class SourceLocation {
 }
 
 export interface TokenInstance {
-    type: string,
-    value: string,
-    location?: SourceLocation
+    type: string;
+    value: string;
+    location?: SourceLocation;
 }
 
 export const WhitespaceToken: TokenType = [/^\s+/, null];
@@ -31,11 +31,14 @@ export const SingleLineCommentToken: TokenType = [/^\/\/.*/, null];
 export const MultiLineCommentToken: TokenType = [/^\/\*[\s\S]*?\*\//, null];
 
 export const IntegerToken: TokenType = [/^(?:[1-9][0-9]*|0)/, 'int', Number];
-export const FloatToken: TokenType = [/^[+\-]?(?:[1-9][0-9]*|0)?(?:\.[0-9]*[1-9]|\.0)(?:[eE][+\-]?(?:[1-9][0-9]*|0))?/, 'float', Number];
+export const FloatToken: TokenType = [
+    /^[+\-]?(?:[1-9][0-9]*|0)?(?:\.[0-9]*[1-9]|\.0)(?:[eE][+\-]?(?:[1-9][0-9]*|0))?/,
+    'float',
+    Number
+];
 export const BooleanToken: TokenType = [/^(?:true|false)/, 'bool', Boolean];
 
-const DEFAULT_TOKENS : TokenType[] = [
-
+const DEFAULT_TOKENS: TokenType[] = [
     // Whitespace
     WhitespaceToken,
 
@@ -76,11 +79,9 @@ const DEFAULT_TOKENS : TokenType[] = [
     [/^[*/]/, 'MULTIPLICATIVE_OPERATOR'],
     [/^\^/, '^'],
     [/^=/, '=']
-
 ];
 
 export class TokenizerFactory {
-
     static fromString(string: string, tokenTypes: TokenType[] = DEFAULT_TOKENS): Tokenizer {
         return new Tokenizer(string, tokenTypes);
     }
@@ -89,18 +90,20 @@ export class TokenizerFactory {
         const string = fs.readFileSync(file).toString();
         return new Tokenizer(string, tokenTypes, file);
     }
-
 }
 
 export class Tokenizer {
-
     private readonly _tokenTypes: TokenType[];
     private readonly _file: string;
     private readonly _string: string;
 
     private _cursor: number;
 
-    public constructor(string: string, tokenTypes: TokenType[] = DEFAULT_TOKENS, file: string = 'inline') {
+    public constructor(
+        string: string,
+        tokenTypes: TokenType[] = DEFAULT_TOKENS,
+        file: string = 'inline'
+    ) {
         this._tokenTypes = tokenTypes;
         this._file = file;
         this._string = string;
@@ -111,7 +114,7 @@ export class Tokenizer {
         return this._cursor < this._string.length;
     }
 
-    public next() : TokenInstance {
+    public next(): TokenInstance {
         const location = this.getCursorLocation();
         if (!this.hasNext()) {
             return {
@@ -126,8 +129,7 @@ export class Tokenizer {
         let tokenType: TokenType | null = null;
         for (let [regex, type, constructor] of this._tokenTypes) {
             const match = string.match(regex);
-            if (!match)
-                continue;
+            if (!match) continue;
 
             if (!longestMatch || match[0].length > longestMatch[0].length) {
                 longestMatch = match;
@@ -138,19 +140,20 @@ export class Tokenizer {
         if (longestMatch) {
             this._cursor += longestMatch[0].length;
             let [regex, type, constructor] = tokenType;
-            if (!type)
-                return this.next();
+            if (!type) return this.next();
 
             return {
                 type,
                 value: constructor ? constructor(longestMatch[0]) : longestMatch[0],
                 location
-            }
+            };
         }
 
         const unexpected = string.match(/^\S+/);
         this._cursor += unexpected[0].length;
-        throw new SyntaxError(`${this.getCursorLocation().toString()} Unexpected token '${unexpected[0]}'!`);
+        throw new SyntaxError(
+            `${this.getCursorLocation().toString()} Unexpected token '${unexpected[0]}'!`
+        );
     }
 
     public getCursorLocation(): SourceLocation {
@@ -160,5 +163,4 @@ export class Tokenizer {
         const column = lines[lines.length - 1].length + 1;
         return new SourceLocation(this._file, line, column);
     }
-
 }

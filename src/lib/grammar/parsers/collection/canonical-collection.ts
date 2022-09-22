@@ -1,4 +1,4 @@
-import { Set } from 'immutable';
+import { OrderedSet } from 'immutable';
 
 import { Grammar } from '../../grammar';
 import { LRItem, LRItemBuilder } from '../items/lr-item';
@@ -10,10 +10,15 @@ export class GraphState<T extends LRItem> {
     private readonly _itemBuilder: LRItemBuilder<T>;
     private readonly _grammar: Grammar;
 
-    public items: Set<T>;
+    public items: OrderedSet<T>;
     public readonly transitions: GraphTransitions<T>;
 
-    constructor(itemBuilder: LRItemBuilder<T>, grammar: Grammar, items: Set<T>, transitions: GraphTransitions<T> = {}) {
+    constructor(
+        itemBuilder: LRItemBuilder<T>,
+        grammar: Grammar,
+        items: OrderedSet<T>,
+        transitions: GraphTransitions<T> = {}
+    ) {
         this._itemBuilder = itemBuilder;
         this._grammar = grammar;
         this.items = items;
@@ -21,8 +26,7 @@ export class GraphState<T extends LRItem> {
     }
 
     public closure() {
-        if (this._isClosured)
-            return;
+        if (this._isClosured) return;
 
         this.items = this._itemBuilder.closure(this._grammar, this.items);
         this._isClosured = true;
@@ -37,11 +41,11 @@ export class GraphState<T extends LRItem> {
     }
 
     public isFinal(): boolean {
-        return this.items.some(i => i.isFinal());
+        return this.items.some((i) => i.isFinal());
     }
 
     public toString(): string {
-        return this.items.map(i => i.toString()).join('\n');
+        return this.items.map((i) => i.toString()).join('\n');
     }
 
     public equals(other: GraphState<T>) {
@@ -57,16 +61,27 @@ export class CanonicalCollection<T extends LRItem> {
     }
 
     public contains(state: GraphState<T>): boolean {
-        return !!this.states.find(s => s.equals(state));
+        return !!this.states.find((s) => s.equals(state));
     }
 
     public toString(): string {
         let str = 'digraph {\n    rankdir=LR;\n';
         str += '\n';
-        this.states.forEach((s, i) => str += `    n${i} [label="${s.toString().replaceAll('\n', '\\n')}", shape=circle];\n`);
-        str += '\n';this.states.forEach((s, i) =>
-            Object.keys(s.transitions)
-                .forEach(t => str += `    n${i} -> n${this.states.indexOf(s.transitions[t])} [label="${Grammar.stringify(t)}"];\n`));
+        this.states.forEach(
+            (s, i) =>
+                (str += `    n${i} [label="${s
+                    .toString()
+                    .replaceAll('\n', '\\n')}", shape=circle];\n`)
+        );
+        str += '\n';
+        this.states.forEach((s, i) =>
+            Object.keys(s.transitions).forEach(
+                (t) =>
+                    (str += `    n${i} -> n${this.states.indexOf(
+                        s.transitions[t]
+                    )} [label="${Grammar.stringify(t)}"];\n`)
+            )
+        );
         str += '}';
         return str;
     }

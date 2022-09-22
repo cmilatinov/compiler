@@ -7,7 +7,6 @@ import { Grammar, GrammarRule } from '../../grammar';
 import { EOF, EPSILON } from '../../../symbols';
 
 export class LR1Item extends LR0Item {
-
     public lookaheads: Set<string>;
 
     constructor(rule: GrammarRule, dotIndex: number, lookaheads: Set<string> = Set<string>([EOF])) {
@@ -16,7 +15,7 @@ export class LR1Item extends LR0Item {
     }
 
     public toString(): string {
-        return super.toString() + `, ${this.lookaheads.map(t => Grammar.stringify(t)).join('/')}`;
+        return super.toString() + `, ${this.lookaheads.map((t) => Grammar.stringify(t)).join('/')}`;
     }
 
     public equals(other: LR1Item): boolean {
@@ -41,13 +40,12 @@ export class LR1Item extends LR0Item {
         let nextClosureSet;
         do {
             nextClosureSet = OrderedSet<LR1Item>(itemSet);
-            itemSet.forEach(item => {
+            itemSet.forEach((item) => {
                 // Final item, no other items to add to closure
-                if (item.isFinal())
-                    return;
+                if (item.isFinal()) return;
 
-                const filteredRules = rules.filter(r => r.LHS === item.rule.RHS[item.dotIndex]);
-                filteredRules.forEach(r => {
+                const filteredRules = rules.filter((r) => r.LHS === item.rule.RHS[item.dotIndex]);
+                filteredRules.forEach((r) => {
                     // Construct the first set of the remaining part of the rule
                     // and the lookahead set
                     const ruleEnd = _.slice(item.rule.RHS, item.dotIndex + 1);
@@ -62,7 +60,9 @@ export class LR1Item extends LR0Item {
                     // Additionally, if another item with the same rule is already present,
                     // simply add this item's lookahead to the existing item's
                     const itemToAdd = new LR1Item(r, 0, firstSet);
-                    const existingItem: LR1Item = nextClosureSet.find(i => i.ruleEquals(itemToAdd));
+                    const existingItem: LR1Item = nextClosureSet.find((i) =>
+                        i.ruleEquals(itemToAdd)
+                    );
                     if (!existingItem) {
                         nextClosureSet = nextClosureSet.add(new LR1Item(r, 0, firstSet));
                     } else {
@@ -70,16 +70,17 @@ export class LR1Item extends LR0Item {
                     }
                 });
             });
-        } while(nextClosureSet.size !== itemSet.size && (itemSet = nextClosureSet));
+        } while (nextClosureSet.size !== itemSet.size && (itemSet = nextClosureSet));
 
         return itemSet;
     }
 
     public static goto(state: GraphState<LR1Item>, symbol: string): OrderedSet<LR1Item> {
-        return OrderedSet<LR1Item>(state.items
-            .toJSON()
-            .filter(i => i.dotIndex < i.rule.RHS.length && i.rule.RHS[i.dotIndex] === symbol)
-            .map(i => new LR1Item(i.rule, i.dotIndex + 1, Set<string>(i.lookaheads))));
+        return OrderedSet<LR1Item>(
+            state.items
+                .toJSON()
+                .filter((i) => i.dotIndex < i.rule.RHS.length && i.rule.RHS[i.dotIndex] === symbol)
+                .map((i) => new LR1Item(i.rule, i.dotIndex + 1, Set<string>(i.lookaheads)))
+        );
     }
-
 }

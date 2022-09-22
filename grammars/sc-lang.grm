@@ -3,35 +3,49 @@ Program -> SourceElementList {{ $$ = { type: $0, sourceElements: $1 } }} ;
 SourceElementList -> SourceElementList SourceElement {{ $$ = [...$1, $2] }} ;
 SourceElementList -> {{ $$ = [] }} ;
 
-SourceElement -> FunctionDeclaration | Statement {{ $$ = $1 }} ;
+SourceElement -> FunctionDeclaration {{ $$ = $1 }} ;
 
 FunctionDeclaration -> 'def' 'id' '(' OptFormalParameterList ')' OptReturnTypeSpecifier '{' StatementList '}'
-{{ $$ = { type: $0, location: $1.location, name: $2.value, params: $4, returnType: $6, body: $8 } }} ;
+{{ $$ = { type: $0, location: $1.location, name: $2.value, parameters: $4, returnType: $6, body: $8 } }} ;
 
-TypeSpecifier -> ':' Type {{ $$ = $2 }} ;
+TypeSpecifier -> ':' Type | ':' FunctionType {{ $$ = $2 }} ;
 
-Type -> BaseType OptTypeModifier OptReference {{ $$ = { type: 'TypeSpecifier', value: $1.value, ...$2, ...$3 } }} ;
+FunctionType -> 'fn' '(' OptTypeList ')' OptReturnTypeSpecifier
+{{ $$ = FunctionTypeSpecifier.fromObject({ location: $1.location, parameters: $3, returnType: $5 }) }} ;
+
+TypeList -> TypeList ',' Type {{ $$ = [...$1, $3] }} ;
+TypeList -> Type {{ $$ = [$1] }} ;
+
+OptTypeList -> TypeList {{ $$ = $1 }} ;
+OptTypeList -> {{ $$ = [] }} ;
+
+Type -> PointerType OptArraySizeList OptReference {{ $$ = TypeSpecifier.fromObject({ ...$1, ...$2, ...$3 }) }} ;
+
+PointerType -> BaseType OptPointerLevel {{ $$ = TypeSpecifier.fromObject({ value: $1.value, ...$2 }) }} ;
 
 BaseType -> 'id' | 'bool' | 'int' | 'float' | 'string' {{ $$ = $1 }} ;
+
+PointerLevel -> PointerLevel '*' {{ $$ = { pointerLevel: $1.pointerLevel + 1 } }} ;
+PointerLevel -> '*' {{ $$ = { pointerLevel: 1 } }} ;
+
+OptPointerLevel -> PointerLevel {{ $$ = $1 }} ;
+OptPointerLevel -> {{ $$ = undefined }} ;
+
+ArraySizeList -> ArraySizeList ArraySize {{ $$ = { arraySizes: [...$1.arraySizes, $2] } }} ;
+ArraySizeList -> ArraySize {{ $$ = { arraySizes: [$1] } }} ;
+
+OptArraySizeList -> ArraySizeList {{ $$ = $1 }} ;
+OptArraySizeList -> {{ $$ = undefined }} ;
+
+ArraySize -> '[' 'int_literal' ']' {{ $$ = $2.value }} ;
+ArraySize -> '[' ']' {{ $$ = 0 }} ;
 
 OptReference -> '&&' {{ $$ = { referenceLevel: 2 } }} ;
 OptReference -> '&' {{ $$ = { referenceLevel: 1 } }} ;
 OptReference -> {{ $$ = undefined }} ;
 
-OptTypeModifier -> PointerLevel | ArraySizeList {{ $$ = $1 }} ;
-OptTypeModifier -> {{ $$ = undefined }} ;
-
-PointerLevel -> PointerLevel '*' {{ $$ = { pointerLevel: $1.pointerLevel + 1 } }} ;
-PointerLevel -> '*' {{ $$ = { pointerLevel: 1 } }} ;
-
-ArraySizeList -> ArraySizeList ArraySize {{ $$ = { arraySizes: [...$1.arraySizes, $2] } }} ;
-ArraySizeList -> ArraySize {{ $$ = { arraySizes: [$1] } }} ;
-
-ArraySize -> '[' 'int_literal' ']' {{ $$ = $2.value }} ;
-ArraySize -> '[' ']' {{ $$ = 0 }} ;
-
-ReturnType -> Type {{ $$ = $1 }} ;
-ReturnType -> 'void' {{ $$ = { type: 'TypeSpecifier', value: $1.value } }} ;
+ReturnType -> Type | FunctionType {{ $$ = $1 }} ;
+ReturnType -> 'void' {{ $$ = new TypeSpecifier($1.value, $1.location) }} ;
 
 OptTypeSpecifier -> TypeSpecifier {{ $$ = $1 }} ;
 OptTypeSpecifier -> {{ $$ = undefined }} ;
@@ -39,12 +53,12 @@ OptTypeSpecifier -> {{ $$ = undefined }} ;
 ReturnTypeSpecifier -> '->' ReturnType {{ $$ = $2 }} ;
 
 OptReturnTypeSpecifier -> ReturnTypeSpecifier {{ $$ = $1 }} ;
-OptReturnTypeSpecifier -> {{ $$ = undefined }} ;
+OptReturnTypeSpecifier -> {{ $$ = new TypeSpecifier('void') }} ;
 
-FormalParameterList -> FormalParameterList ',' 'id' OptTypeSpecifier
-{{ $$ = [...$1, { type: 'Parameter', location: $3.location, identifier: $3.value, typeSpecifier: $4 }] }} ;
-FormalParameterList -> 'id' OptTypeSpecifier
-{{ $$ = [{ type: 'Parameter', location: $1.location, identifier: $1.value, typeSpecifier: $2 }] }} ;
+FormalParameterList -> FormalParameterList ',' 'id' TypeSpecifier
+{{ $$ = [...$1, { type: 'Parameter', location: $3.location, name: $3.value, typeSpecifier: $4 }] }} ;
+FormalParameterList -> 'id' TypeSpecifier
+{{ $$ = [{ type: 'Parameter', location: $1.location, name: $1.value, typeSpecifier: $2 }] }} ;
 
 OptFormalParameterList -> FormalParameterList {{ $$ = $1 }} ;
 OptFormalParameterList -> {{ $$ = [] }} ;
@@ -121,14 +135,14 @@ TryStatement -> 'try' Statement Finally
 TryStatement -> 'try' Statement Catch Finally
 {{ $$ = { type: $0, location: $1.location, tryBody: $2, catchBody: $3, finallyBody: $4 } }} ;
 
-Catch -> 'catch' '(' 'id' OptTypeSpecifier ')' Statement
+Catch -> 'catch' '(' 'id' TypeSpecifier ')' Statement
 {{ $$ = { type: $0, location: $1.location, variable: $3.value, variableType: $4, statement: $6 } }} ;
 
 Finally -> 'finally' Statement
 {{ $$ = { type: $0, location: $1.location, statement: $6 } }} ;
 
 Expression -> Expression ',' AssignmentExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: ',', left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: ',', operands: [$1, $3] } }} ;
 Expression -> AssignmentExpression {{ $$ = $1 }} ;
 
 OptExpression -> Expression {{ $$ = $1 }} ;
@@ -146,67 +160,74 @@ AssignmentExpression -> LeftHandSideExpression '??=' AssignmentExpression
                       | LeftHandSideExpression '+=' AssignmentExpression
                       | LeftHandSideExpression '-=' AssignmentExpression
                       | LeftHandSideExpression '=' AssignmentExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 AssignmentExpression -> ConditionalExpression {{ $$ = $1 }} ;
 
 ConditionalExpression -> NullCoalescingExpression '?' AssignmentExpression ':' AssignmentExpression
-{{ $$ = { type: 'TernaryExpression', location: $1.location, condition: $1, trueExpression: $3, falseExpression: $5 } }} ;
+{{
+    $$ = {
+        type: 'Expression',
+        location: $1.location,
+        operator: '?:',
+        operands: [$1, $3, $5]
+    }
+}} ;
 ConditionalExpression -> NullCoalescingExpression {{ $$ = $1 }} ;
 
 NullCoalescingExpression -> NullCoalescingExpression '??' LogicalORExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 NullCoalescingExpression -> LogicalORExpression {{ $$ = $1 }};
 
 LogicalORExpression -> LogicalORExpression '||' LogicalANDExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 LogicalORExpression -> LogicalANDExpression {{ $$ = $1 }} ;
 
 LogicalANDExpression -> LogicalANDExpression '&&' BitwiseORExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 LogicalANDExpression -> BitwiseORExpression {{ $$ = $1 }} ;
 
 BitwiseORExpression -> BitwiseORExpression '|' BitwiseXORExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 BitwiseORExpression -> BitwiseXORExpression {{ $$ = $1 }} ;
 
 BitwiseXORExpression -> BitwiseXORExpression '^' BitwiseANDExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 BitwiseXORExpression -> BitwiseANDExpression {{ $$ = $1 }} ;
 
 BitwiseANDExpression -> BitwiseANDExpression '&' EqualityExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 BitwiseANDExpression -> EqualityExpression {{ $$ = $1 }} ;
 
 EqualityExpression -> EqualityExpression '==' RelationalExpression
                     | EqualityExpression '!=' RelationalExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 EqualityExpression -> RelationalExpression {{ $$ = $1 }} ;
 
 RelationalExpression -> RelationalExpression '<=' ShiftExpression
                       | RelationalExpression '>=' ShiftExpression
                       | RelationalExpression '<' ShiftExpression
                       | RelationalExpression '>' ShiftExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 RelationalExpression -> ShiftExpression {{ $$ = $1 }} ;
 
 ShiftExpression -> ShiftExpression '>>' AdditiveExpression
                  | ShiftExpression '<<' AdditiveExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 ShiftExpression -> AdditiveExpression {{ $$ = $1 }} ;
 
 AdditiveExpression -> AdditiveExpression '+' MultiplicativeExpression
                     | AdditiveExpression '-' MultiplicativeExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 AdditiveExpression -> MultiplicativeExpression {{ $$ = $1 }} ;
 
 MultiplicativeExpression -> MultiplicativeExpression '*' PowerExpression
                           | MultiplicativeExpression '/' PowerExpression
                           | MultiplicativeExpression '%' PowerExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 MultiplicativeExpression -> PowerExpression {{ $$ = $1 }} ;
 
 PowerExpression -> PowerExpression '^^' UnaryExpression
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 PowerExpression -> UnaryExpression {{ $$ = $1 }} ;
 
 UnaryExpression -> '++' UnaryExpression
@@ -217,54 +238,46 @@ UnaryExpression -> '++' UnaryExpression
                  | '~' UnaryExpression
                  | '&' UnaryExpression
                  | '*' UnaryExpression
-                 {{ $$ = { type: $0, location: $1.location, operator: $1.value, expression: $2 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $1.value, operands: [$2] } }} ;
 UnaryExpression -> PostfixExpression {{ $$ = $1 }} ;
 
 PostfixExpression -> PostfixExpression '++'
                    | PostfixExpression '--'
-{{ $$ = { type: $0, location: $1.location, operand: $1.value, expression: $2 } }} ;
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, { type: 'IntLiteral', value: '0' }] } }} ;
 PostfixExpression -> LeftHandSideExpression {{ $$ = $1 }} ;
 
-LeftHandSideExpression -> CallExpression | NewExpression {{ $$ = $1 }} ;
+LeftHandSideExpression -> MemberCallExpression {{ $$ = $1 }} ;
 
-ArgumentList -> ArgumentList ',' AssignmentExpression {{ $$ = [...$1, $3] }} ;
-ArgumentList -> AssignmentExpression {{ $$ = [$1] }} ;
+MemberCallExpression -> MemberCallExpression '.' 'id'
+                      | MemberCallExpression '->' 'id'
+{{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1], identifier: $3.value } }} ;
+MemberCallExpression -> MemberCallExpression '[' Expression ']'
+{{ $$ = { type: 'Expression', location: $1.location, operator: '[]', operands: [$1, $3] } }} ;
+MemberCallExpression -> MemberCallExpression Arguments
+{{ $$ = { type: 'Expression', location: $1.location, operator: '()', operands: [$1, ...$2] } }} ;
+MemberCallExpression -> PrimaryExpression {{ $$ = $1 }} ;
 
 Arguments -> '(' ArgumentList ')' {{ $$ = $2 }} ;
 Arguments -> '(' ')' {{ $$ = [] }} ;
 
-CallExpression -> CallExpression '.' 'id'
-                | CallExpression '.?' 'id'
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3.value } }} ;
-CallExpression -> CallExpression '[' Expression ']'
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: '[]', left: $1, right: $3 } }} ;
-CallExpression -> CallExpression Arguments
-{{ $$ = { type: 'FunctionCallExpression', location: $1.location, function: $1, arguments: $2 } }} ;
-CallExpression -> MemberExpression Arguments
-{{ $$ = { type: 'FunctionCallExpression', location: $1.location, function: $1, arguments: $2 } }} ;
+ArgumentList -> ArgumentList ',' AssignmentExpression {{ $$ = [...$1, $3] }} ;
+ArgumentList -> AssignmentExpression {{ $$ = [$1] }} ;
 
-NewExpression -> 'new' NewExpression
-{{ $$ = { type: $0, location: $1.location, expression: $2 } }} ;
-NewExpression -> MemberExpression {{ $$ = $1 }} ;
+OptArguments -> Arguments {{ $$ = $1 }} ;
+OptArguments -> {{ $$ = [] }} ;
 
-MemberExpression -> 'new' MemberExpression Arguments
-{{ $$ = { type: 'NewExpression', location: $1.location, expression: $2, arguments: $3 } }} ;
-MemberExpression -> MemberExpression '.' 'id'
-                  | MemberExpression '.?' 'id'
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: $2.value, left: $1, right: $3.value } }} ;
-MemberExpression -> MemberExpression '[' Expression ']'
-{{ $$ = { type: 'BinaryExpression', location: $1.location, operator: '[]', left: $1, right: $3 } }} ;
-MemberExpression -> PrimaryExpression {{ $$ = $1 }} ;
+PrimaryExpression -> NewExpression | DeleteExpression | Literal {{ $$ = $1 }} ;
+PrimaryExpression -> '(' Expression ')' {{ $$ = $2 }} ;
+PrimaryExpression -> 'id' {{ $$ = { type: 'Identifier', location: $1.location, value: $1.value } }} ;
 
-Elision -> Elision ',' {{ $$ = [...$1, { type: $0, location: $2.location }] }} ;
-Elision -> {{ $$ = [] }} ;
+NewExpression -> 'new' PointerType OptArguments
+{{ $$ = { type: 'Expression', location: $1.location, operator: $1.value, operands: $3, typeSpecifier: $2 } }} ;
+NewExpression -> 'new' PointerType ArraySizeList
+{{ $$ = { type: 'Expression', location: $1.location, operator: $1.value + '[]', operands: $3, typeSpecifier: $2 } }} ;
 
-ElementList -> ElementList ',' Elision AssignmentExpression {{ $$ = [...$1, ...$3, $4] }} ;
-ElementList -> Elision AssignmentExpression {{ $$ = [...$1, $2] }} ;
-
-ArrayLiteral -> '[' Elision ']' {{ $$ = { type: $0, elements: $2 } }} ;
-ArrayLiteral -> '[' ElementList ']' {{ $$ = { type: $0, elements: $2 } }} ;
-ArrayLiteral -> '[' ElementList ',' Elision ']' {{ $$ = { type: $0, elements: [...$2, ...$4] } }} ;
+DeleteExpression -> 'delete' Expression
+                  | 'delete[]' Expression
+{{ $$ = { type: 'Expression', location: $1.location, operator: $1.value, operands: [$2] } }} ;
 
 Literal -> 'string_literal' {{ $$ = { type: 'StringLiteral', location: $1.location, value: $1.value } }} ;
 Literal -> 'float_literal' {{ $$ = { type: 'FloatLiteral', location: $1.location, value: $1.value } }} ;
@@ -272,11 +285,6 @@ Literal -> 'int_literal' {{ $$ = { type: 'IntLiteral', location: $1.location, va
 Literal -> 'bool_literal' {{ $$ = { type: 'BooleanLiteral', location: $1.location, value: $1.value } }} ;
 Literal -> 'null_literal' {{ $$ = { type: 'NullLiteral', location: $1.location, value: $1.value } }} ;
 Literal -> 'this' {{ $$ = { type: 'ThisLiteral', location: $1.location, value: $1.value } }} ;
-
-PrimaryExpression -> '(' Expression ')' {{ $$ = $2 }} ;
-PrimaryExpression -> ArrayLiteral {{ $$ = $1 }} ;
-PrimaryExpression -> Literal {{ $$ = $1 }} ;
-PrimaryExpression -> 'id' {{ $$ = { type: 'Identifier', location: $1.location, value: $1.value } }} ;
 
 VariableStatement -> VarDeclKeyword VariableDeclarationList ';'
 {{ $$ = { type: $0, location: $1.location, declKeyword: $1.value, declList: $2 } }} ;

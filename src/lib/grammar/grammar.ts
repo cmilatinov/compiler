@@ -3,7 +3,12 @@ import { Set } from 'immutable';
 import _ from 'lodash';
 
 import { EOF, EPSILON } from '../symbols';
-import { MultiLineCommentToken, SingleLineCommentToken, TokenType, WhitespaceToken } from '../tokenizer';
+import {
+    MultiLineCommentToken,
+    SingleLineCommentToken,
+    TokenType,
+    WhitespaceToken
+} from '../tokenizer';
 import { DEFAULT_PROCESSOR, StringProcessor } from '../string-processor';
 import GRMLang from '../../../grammars/grm-lang.json';
 import { GrammarParserFactory } from './grammar-parser-factory';
@@ -21,7 +26,13 @@ export class GrammarRule {
     }
 
     public toString(): string {
-        return `${this.LHS} -> ${this.RHS.map(s => Grammar.stringify(s)).join(' ')}`;
+        return `${this.LHS} -> ${this.RHS.map((s) => Grammar.stringify(s)).join(' ')}`;
+    }
+
+    public toJSMachineString(): string {
+        return `${this.LHS} -> ${this.RHS.map((s) =>
+            s === EPSILON ? `''` : s === `'->'` ? '-=>' : Grammar.stringify(s)
+        ).join(' ')}`;
     }
 
     public equals(other: GrammarRule): boolean {
@@ -30,7 +41,6 @@ export class GrammarRule {
 }
 
 export class GrammarFactory {
-
     public static grm() {
         return this.fromJSON(GRMLang);
     }
@@ -51,17 +61,29 @@ export class GrammarFactory {
 
     public static fromJSON(rules: any[]) {
         // Check validity
-        if (!Array.isArray(rules) || rules.some(r => ['LHS', 'RHS'].some(p => !r.hasOwnProperty(p))) || rules.some(r => !Array.isArray(r.RHS))) {
+        if (
+            !Array.isArray(rules) ||
+            rules.some((r) => ['LHS', 'RHS'].some((p) => !r.hasOwnProperty(p))) ||
+            rules.some((r) => !Array.isArray(r.RHS))
+        ) {
             throw new SyntaxError('Invalid JSON grammar.');
         }
 
         // Convert to grammar rules
-        const grammarRules = rules.map(r =>
-            new GrammarRule(r.LHS, r.RHS,
-                r.reduction ?
-                    new Function(`let $$;\n${r.reduction.replace(/\$([0-9]+)/g, 'arguments[$1]')}\nreturn $$;`) :
-                    undefined
-            )
+        const grammarRules = rules.map(
+            (r) =>
+                new GrammarRule(
+                    r.LHS,
+                    r.RHS,
+                    r.reduction
+                        ? new Function(
+                              `let $$;\n${r.reduction.replace(
+                                  /\$([0-9]+)/g,
+                                  'arguments[$1]'
+                              )}\nreturn $$;`
+                          )
+                        : undefined
+                )
         );
 
         return new Grammar(grammarRules);
@@ -76,21 +98,22 @@ export class GrammarFactory {
         const grammar = this.grm();
         const grammarParser = GrammarParserFactory.create(GrammarParserType.SLR1, grammar);
         const derivation = grammarParser.parseString(grammarStr);
-        if (!derivation)
-            return null;
+        if (!derivation) return null;
         const ast = grammarParser.createAST(derivation);
-        if (!ast)
-            return null;
-        const grammarRules = (ast as unknown as any[]).reduce((acc, p) =>
-            [
+        if (!ast) return null;
+        const grammarRules = (ast as unknown as any[]).reduce(
+            (acc, p) => [
                 ...acc,
-                ...p.RHS.map(rhs => {
-                    const RHS = typeof rhs === 'string' ? [rhs] : rhs.length === 0 ? [EPSILON] : rhs;
+                ...p.RHS.map((rhs) => {
+                    const RHS =
+                        typeof rhs === 'string' ? [rhs] : rhs.length === 0 ? [EPSILON] : rhs;
                     const reduction = p.reduction
                         ?.substring(2, p.reduction.length - 2)
                         .trim()
                         .replace(/\$([0-9]+)/g, 'arguments[$1]');
-                    const reductionFn = reduction ? new Function(`let $$;\n${reduction}\nreturn $$;`) : undefined;
+                    const reductionFn = reduction
+                        ? new Function(`let $$;\n${reduction}\nreturn $$;`)
+                        : undefined;
                     return new GrammarRule(p.LHS, RHS, reductionFn);
                 })
             ],
@@ -98,24 +121,22 @@ export class GrammarFactory {
         );
         return new Grammar(grammarRules);
     }
-
 }
 
 export class Grammar {
-
     private readonly _rules: GrammarRule[];
     private readonly _terminalRules: GrammarRule[];
     private readonly _startSymbol: string;
 
     private _nonTerminals: string[];
     private _terminals: string[];
-    private _firstSets: { [key: string]: Set<string>; };
-    private _followSets: { [key: string]: Set<string>; };
+    private _firstSets: { [key: string]: Set<string> };
+    private _followSets: { [key: string]: Set<string> };
     private _tokenTypes: TokenType[];
 
     public constructor(rules: GrammarRule[]) {
-        this._rules = rules.filter(r => !Grammar.isTerminal(r.LHS));
-        this._terminalRules = rules.filter(r => Grammar.isTerminal(r.LHS));
+        this._rules = rules.filter((r) => !Grammar.isTerminal(r.LHS));
+        this._terminalRules = rules.filter((r) => Grammar.isTerminal(r.LHS));
         this._startSymbol = rules[0].LHS;
         this._firstSets = {};
         this._followSets = {};
@@ -124,21 +145,21 @@ export class Grammar {
         this.computeFirstFollow();
     }
 
-
     private createTokenTypes() {
-        const terminals = this._terminals.filter(t => t !== EPSILON && t !== EOF);
+        const terminals = this._terminals.filter((t) => t !== EPSILON && t !== EOF);
         this._tokenTypes = [WhitespaceToken, SingleLineCommentToken, MultiLineCommentToken].concat(
-            terminals.sort((a, b) => {
-                const terminalRuleA = this._terminalRules.find(r => r.LHS === a);
-                const terminalRuleB = this._terminalRules.find(r => r.LHS === b);
-                return Number(!!terminalRuleA) - Number(!!terminalRuleB);
-            })
-                .map(t => {
+            terminals
+                .sort((a, b) => {
+                    const terminalRuleA = this._terminalRules.find((r) => r.LHS === a);
+                    const terminalRuleB = this._terminalRules.find((r) => r.LHS === b);
+                    return Number(!!terminalRuleA) - Number(!!terminalRuleB);
+                })
+                .map((t) => {
                     const terminal = Grammar.stringify(t);
-                    const terminalRule = this._terminalRules.find(r => r.LHS === t);
-                    const regex = terminalRule ?
-                        `^${terminalRule.RHS[0]}` :
-                        `^${terminal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+                    const terminalRule = this._terminalRules.find((r) => r.LHS === t);
+                    const regex = terminalRule
+                        ? `^${terminalRule.RHS[0]}`
+                        : `^${terminal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
                     return [new RegExp(regex), t];
                 })
         );
@@ -153,14 +174,14 @@ export class Grammar {
         const followRules = {};
 
         const symbols = this._terminals.concat(this._nonTerminals).concat([EPSILON]);
-        symbols.forEach(s => {
+        symbols.forEach((s) => {
             firstSets[s] = Set<string>();
-            firstRules[s] = this._rules.filter(r => r.LHS === s);
+            firstRules[s] = this._rules.filter((r) => r.LHS === s);
 
             // FOLLOW is only defined for non-terminals
             if (!Grammar.isTerminal(s)) {
                 followSets[s] = Set<string>();
-                followRules[s] = this._rules.filter(r => r.RHS.includes(s));
+                followRules[s] = this._rules.filter((r) => r.RHS.includes(s));
             }
         });
 
@@ -180,15 +201,13 @@ export class Grammar {
             //      c) If FIRST (Yi) contains Є for all i = 1 to n, then add Є to FIRST(X).
 
             // Terminal symbol
-            if (Grammar.isTerminal(symbol))
-                return Set<string>([symbol]);
+            if (Grammar.isTerminal(symbol)) return Set<string>([symbol]);
 
             let firstSet = Set<string>();
 
             // Iterate through every rule that has the symbol in the left-hand side
             const rules = firstRules[symbol];
             for (const rule of rules) {
-
                 // Loop over the RHS symbols of the rule
                 // While ε is in their first set
                 let first;
@@ -200,21 +219,19 @@ export class Grammar {
                     tempSet.delete(EPSILON);
 
                     firstSet = firstSet.union<string>(tempSet);
-                } while(first.has(EPSILON) && ++index && index < rule.RHS.length);
+                } while (first.has(EPSILON) && ++index && index < rule.RHS.length);
 
                 // If all RHS symbols have ε in their first sets
                 // Add ε to firstOf(symbol)
-                if (index === rule.RHS.length)
-                    firstSet = firstSet.add(EPSILON);
+                if (index === rule.RHS.length) firstSet = firstSet.add(EPSILON);
 
                 // If symbol => ε exists, add ε to firstOf(symbol)
-                if (_.isEqual(rule.RHS, [EPSILON]))
-                    firstSet = firstSet.add(EPSILON);
+                if (_.isEqual(rule.RHS, [EPSILON])) firstSet = firstSet.add(EPSILON);
             }
 
             // Save and return the computed first set
             return firstSet;
-        }
+        };
 
         // Computes FOLLOW(symbol)
         const followOf = (symbol) => {
@@ -227,46 +244,45 @@ export class Grammar {
             //
             // 4. If A-> pBq is a production and FIRST(q) contains Є,
             //    then FOLLOW(B) contains { FIRST(q) – Є } U FOLLOW(A)
-
-            // Start symbol
-            if (symbol === this._startSymbol)
-                return Set<string>([EOF]);
-
             let followSet = Set<string>();
 
             // Find productions where symbol is in RHS
             const rules = followRules[symbol];
             for (const rule of rules) {
+                // Symbol may occur multiple times in RHS
+                // We need to loop over each occurrence
+                rule.RHS.map((v, i) => [v, i + 1])
+                    .filter(([v]) => v === symbol)
+                    .forEach(([_, index]) => {
+                        // Loop over the RHS symbols occurring after symbol
+                        // While ε is in their first set
+                        let first;
+                        do {
+                            // We've hit the end of the RHS of the rule
+                            // So everything in FOLLOW(LHS) is also in FOLLOW(symbol)
+                            if (index === rule.RHS.length) {
+                                const follow = followSets[rule.LHS];
+                                followSet = followSet.union<string>(follow);
+                                break;
+                            }
 
-                let index = rule.RHS.indexOf(symbol) + 1;
+                            first = firstSets[rule.RHS[index]];
 
-                // Loop over the RHS symbols occurring after symbol
-                // While ε is in their first set
-                let first;
-                do {
-                    // We've hit the end of the RHS of the rule
-                    // So everything in FOLLOW(LHS) is also in FOLLOW(symbol)
-                    if (index === rule.RHS.length) {
-                        const follow = followSets[rule.LHS];
-                        followSet = followSet.union<string>(follow);
-                        break;
-                    }
+                            let tempSet = Set<string>(first);
+                            tempSet.delete(EPSILON);
 
-                    first = firstSets[rule.RHS[index]];
-
-                    let tempSet = Set<string>(first);
-                    tempSet.delete(EPSILON);
-
-                    followSet = followSet.union<string>(tempSet);
-                } while(first.has(EPSILON) && ++index);
-
-
+                            followSet = followSet.union<string>(tempSet);
+                        } while (first.has(EPSILON) && ++index);
+                    });
             }
+
+            // Add $ to FOLLOW(S)
+            if (symbol === this._startSymbol) followSet = followSet.add(EOF);
 
             // Remove epsilon and return the computed follow set
             followSet = followSet.delete(EPSILON);
             return followSet;
-        }
+        };
 
         // Iterative algorithm
         // Start with baseline FIRST and FOLLOW sets (empty for non-terminals, FIRST(terminal) = { terminal })
@@ -274,23 +290,28 @@ export class Grammar {
         // Repeat until we compute the first iteration where NONE of the sets change
         // Algorithm MUST converge because there is a finite number of symbols in the grammar
         // This takes care of recursive rules
-        let nextFirstSets = firstSets, nextFollowSets = followSets;
+        let nextFirstSets = firstSets,
+            nextFollowSets = followSets;
         do {
             firstSets = nextFirstSets;
             followSets = nextFollowSets;
             nextFirstSets = {};
             nextFollowSets = {};
-            symbols.forEach(s => {
+            symbols.forEach((s) => {
                 nextFirstSets[s] = firstOf(s);
-                if (!Grammar.isTerminal(s))
-                    nextFollowSets[s] = followOf(s);
+                if (!Grammar.isTerminal(s)) nextFollowSets[s] = followOf(s);
             });
-        } while(symbols.some(s => !nextFirstSets[s].equals(firstSets[s]) || (!Grammar.isTerminal(s) && !nextFollowSets[s].equals(followSets[s]))));
+        } while (
+            symbols.some(
+                (s) =>
+                    !nextFirstSets[s].equals(firstSets[s]) ||
+                    (!Grammar.isTerminal(s) && !nextFollowSets[s].equals(followSets[s]))
+            )
+        );
 
         this._firstSets = firstSets;
         this._followSets = followSets;
     }
-
 
     public getStartSymbol() {
         return this._startSymbol;
@@ -302,19 +323,17 @@ export class Grammar {
 
         let terminals = Set<string>([EOF]);
         let nonTerminals = Set<string>();
-        this._rules.forEach(rule => {
+        this._rules.forEach((rule) => {
             nonTerminals = nonTerminals.add(rule.LHS);
-            rule.RHS.forEach(s => {
-                if (Grammar.isTerminal(s))
-                    terminals = terminals.add(s);
-                else
-                    nonTerminals = nonTerminals.add(s);
+            rule.RHS.forEach((s) => {
+                if (Grammar.isTerminal(s)) terminals = terminals.add(s);
+                else nonTerminals = nonTerminals.add(s);
             });
         });
 
         this._terminals = terminals.toArray().sort((a, b) => {
-            const ruleIndexA = this._terminalRules.findIndex(r => r.LHS === a);
-            const ruleIndexB = this._terminalRules.findIndex(r => r.LHS === b);
+            const ruleIndexA = this._terminalRules.findIndex((r) => r.LHS === a);
+            const ruleIndexB = this._terminalRules.findIndex((r) => r.LHS === b);
             return ruleIndexA - ruleIndexB;
         });
         this._nonTerminals = nonTerminals.toArray();
@@ -342,11 +361,12 @@ export class Grammar {
     }
 
     public getAugmentedGrammar() {
-        const augmentedProduction = new GrammarRule(`${this.getAugmentedStartSymbol()}`, [this._startSymbol]);
+        const augmentedProduction = new GrammarRule(`${this.getAugmentedStartSymbol()}`, [
+            this._startSymbol
+        ]);
         const rules = [augmentedProduction, ...this._rules];
         return new Grammar(rules);
     }
-
 
     public firstOf(symbol: string): Set<string> {
         return this._firstSets[symbol];
@@ -354,11 +374,11 @@ export class Grammar {
 
     public firstOfSequence(symbols: string[]) {
         // Base case, empty array means return set of EOF only
-        if (symbols.length === 0)
-            return Set<string>([EOF]);
+        if (symbols.length === 0) return Set<string>([EOF]);
 
         let firstSet = Set<string>();
-        let first: Set<string> = Set<string>(), index = 0;
+        let first: Set<string> = Set<string>(),
+            index = 0;
 
         do {
             first = this._firstSets[symbols[index++]] || Set<string>();
@@ -376,46 +396,49 @@ export class Grammar {
         return this._followSets[symbol];
     }
 
-
     public print(print: StringProcessor = DEFAULT_PROCESSOR) {
         print(`Grammar:\n`);
 
-        print('\n    Start symbol:\n\n')
+        print('\n    Start symbol:\n\n');
         print(`        ${this._startSymbol}\n`);
 
         print('\n    Rules:\n\n');
-        this.getRules().forEach(r => print(`        ${r.LHS} -> ${r.RHS.join(' ')}\n`));
+        this.getRules().forEach((r) => print(`        ${r.LHS} -> ${r.RHS.join(' ')}\n`));
 
         print('\n    Terminals:\n\n');
-        this.getTerminals().forEach(t => print(`        ${t}\n`));
+        this.getTerminals().forEach((t) => print(`        ${t}\n`));
 
         print('\n    Non-Terminals:\n\n');
-        this.getNonTerminals().forEach(nt => print(`        ${nt}\n`));
+        this.getNonTerminals().forEach((nt) => print(`        ${nt}\n`));
 
         print('\n    First sets:\n\n');
-        this.getNonTerminals().forEach(nt => print(`        FIRST(${nt}) = { ${this.firstOf(nt).toJSON().join(', ')} }\n`));
+        this.getNonTerminals().forEach((nt) =>
+            print(`        FIRST(${nt}) = { ${this.firstOf(nt).toJSON().join(', ')} }\n`)
+        );
 
         print('\n    Follow sets:\n\n');
-        this.getNonTerminals().forEach(nt => print(`        FOLLOW(${nt}) = { ${this.followOf(nt).toJSON().join(', ')} }\n`));
+        this.getNonTerminals().forEach((nt) =>
+            print(`        FOLLOW(${nt}) = { ${this.followOf(nt).toJSON().join(', ')} }\n`)
+        );
     }
 
     public toString(): string {
         let grammarStr = '';
-        const strProc = (str) => grammarStr += str;
+        const strProc = (str) => (grammarStr += str);
         this.print(strProc);
         return grammarStr;
     }
 
+    public toJSMachineString(): string {
+        return this._rules.map((r) => r.toJSMachineString()).join('\n');
+    }
 
     public static isTerminal(symbol: string) {
         return symbol === EOF || symbol === EPSILON || /^'.*'$/.test(symbol);
     }
 
     public static stringify(symbol: string) {
-        if (symbol === EOF || symbol === EPSILON)
-            return symbol;
+        if (symbol === EOF || symbol === EPSILON) return symbol;
         return Grammar.isTerminal(symbol) ? symbol.substring(1, symbol.length - 1) : symbol;
     }
-
 }
-

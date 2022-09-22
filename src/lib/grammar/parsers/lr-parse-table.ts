@@ -1,4 +1,4 @@
-import { OrderedSet, Set } from 'immutable';
+import { OrderedSet } from 'immutable';
 import _ from 'lodash';
 import * as fs from 'fs';
 import colors from 'colors';
@@ -39,14 +39,11 @@ export class ParseTableAction {
 }
 
 export class ParseTable {
-
-    private readonly _table: ({ [key: string]: (ParseTableAction | ParseTableAction[]) })[];
+    private readonly _table: { [key: string]: ParseTableAction | ParseTableAction[] }[];
 
     public constructor(table?: any) {
-        if (table)
-            this._table = table;
-        else
-            this._table = [];
+        if (table) this._table = table;
+        else this._table = [];
     }
 
     public getAction(stateIndex: number, symbol: string): ParseTableAction {
@@ -56,8 +53,10 @@ export class ParseTable {
                 arr.sort((a, b) => a.type - b.type);
                 return arr[0] || new ParseTableAction(ParseTableActionType.REJECT);
             }
-            return (this._table[stateIndex][symbol] as ParseTableAction) ||
-                new ParseTableAction(ParseTableActionType.REJECT);
+            return (
+                (this._table[stateIndex][symbol] as ParseTableAction) ||
+                new ParseTableAction(ParseTableActionType.REJECT)
+            );
         }
         return new ParseTableAction(ParseTableActionType.REJECT);
     }
@@ -67,7 +66,10 @@ export class ParseTable {
             if (Array.isArray(this._table[stateIndex][symbol]))
                 (this._table[stateIndex][symbol] as ParseTableAction[]).push(action);
             else
-                this._table[stateIndex][symbol] = [this._table[stateIndex][symbol] as ParseTableAction, action];
+                this._table[stateIndex][symbol] = [
+                    this._table[stateIndex][symbol] as ParseTableAction,
+                    action
+                ];
         } else if (this._table[stateIndex]) {
             this._table[stateIndex][symbol] = action;
         } else {
@@ -77,38 +79,48 @@ export class ParseTable {
 
     public toString(): string {
         // Collect all symbols and sort them to have terminals first
-        let symbols: string[] = this._table.reduce((acc, value) => {
-            Object.keys(value).forEach(k => acc = acc.add(k));
-            return acc;
-        }, OrderedSet<string>()).toJSON();
+        let symbols: string[] = this._table
+            .reduce((acc, value) => {
+                Object.keys(value).forEach((k) => (acc = acc.add(k)));
+                return acc;
+            }, OrderedSet<string>())
+            .toJSON();
         symbols.sort((a, b) => Number(Grammar.isTerminal(b)) - Number(Grammar.isTerminal(a)));
 
         // Terminal and non-terminal counts
-        const terminalCount = symbols.findIndex(s => !Grammar.isTerminal(s));
+        const terminalCount = symbols.findIndex((s) => !Grammar.isTerminal(s));
         const nonTerminalCount = symbols.length - terminalCount;
 
         // Sort symbols in alphabetical order
-        const compareTerminals = (a, b) => a === EOF ? 1 : b === EOF ? -1 : a.localeCompare(b);
+        const compareTerminals = (a, b) => (a === EOF ? 1 : b === EOF ? -1 : a.localeCompare(b));
         symbols = [
             ..._.slice(symbols, 0, terminalCount).sort(compareTerminals),
             ..._.slice(symbols, terminalCount)
         ];
 
         // Create table double array
-        const tableObject = this._table.map(e => symbols.map(s =>
-            Array.isArray(e[s]) ?
-                (e[s] as ParseTableAction[]).map(a => a.toString()).join('/').red :
-                (e[s]?.toString() === 'acc' ? 'acc'.green : e[s]?.toString() || ''))
-        ).map((e, i ) => [`${i}`.cyan, ...e]);
+        const tableObject = this._table
+            .map((e) =>
+                symbols.map((s) =>
+                    Array.isArray(e[s])
+                        ? (e[s] as ParseTableAction[]).map((a) => a.toString()).join('/').red
+                        : e[s]?.toString() === 'acc'
+                        ? 'acc'.green
+                        : e[s]?.toString() || ''
+                )
+            )
+            .map((e, i) => [`${i}`.cyan, ...e]);
 
         // Add symbols row
-        tableObject.unshift([colors.bold('State'.yellow), ...symbols.map(s => s.cyan)]);
+        tableObject.unshift([colors.bold('State'.yellow), ...symbols.map((s) => s.cyan)]);
 
         // Add second row
         tableObject.unshift([
             colors.bold('\\'.yellow),
-            colors.bold('Action'.yellow), ...[...Array(terminalCount - 1)].map(() => ''),
-            colors.bold('Goto'.yellow), ...[...Array(nonTerminalCount - 1)].map(() => '')
+            colors.bold('Action'.yellow),
+            ...[...Array(terminalCount - 1)].map(() => ''),
+            colors.bold('Goto'.yellow),
+            ...[...Array(nonTerminalCount - 1)].map(() => '')
         ]);
 
         // Return table
@@ -122,10 +134,24 @@ export class ParseTable {
     }
 
     public getNumConflicts() {
-        return this._table.map(e => Object.keys(e)
-            .map(k => Number(Array.isArray(e[k])))
-            .reduce((sum, value) => sum + value, 0)
-        ).reduce((sum, value) => sum + value, 0);
+        let i = 0;
+        this._table.forEach((o) =>
+            Object.keys(o).forEach((k) => {
+                if (Array.isArray(o[k])) {
+                    const str = (o[k] as ParseTableAction[]).map((a) => a.toString()).join('/');
+                    // console.log(`${i} - ${str}`);
+                    i++;
+                }
+            })
+        );
+        console.log(i);
+        return this._table
+            .map((e) =>
+                Object.keys(e)
+                    .map((k) => Number(Array.isArray(e[k])))
+                    .reduce((sum, value) => sum + value, 0)
+            )
+            .reduce((sum, value) => sum + value, 0);
     }
 
     public save(file: string) {
@@ -135,5 +161,4 @@ export class ParseTable {
     public static load(file: string): ParseTable {
         return new ParseTable(JSON.parse(fs.readFileSync(file).toString()));
     }
-
 }

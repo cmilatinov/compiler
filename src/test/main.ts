@@ -1,48 +1,38 @@
-import { Grammar, GrammarFactory, GrammarRule } from '../lib/grammar/grammar';
-import { GrammarParserFactory } from '../lib/grammar/grammar-parser-factory';
-import { GrammarParser, GrammarParserType } from '../lib/grammar/grammar-parser';
-import { printAST } from '../ast/utils';
+import '../sc-lang/type/type-specifier';
 
-import * as fs from 'fs';
-import { GrammarParserLR1 } from '../lib/grammar/parsers/grammar-parser-lr1';
+import { GrammarFactory } from '../lib/grammar/grammar';
+import * as ASTUtils from '../lib/ast/ast-utils';
+import * as GrammarUtils from '../lib/grammar/grammar-utils';
 import { GrammarParserSLR1 } from '../lib/grammar/parsers/grammar-parser-slr';
-import { OrderedSet } from 'immutable';
-import { GrammarParserLR0 } from '../lib/grammar/parsers/grammar-parser-lr0';
-import { ParseTable, ParseTableAction, ParseTableActionType } from '../lib/grammar/parsers/lr-parse-table';
-import { EPSILON } from '../lib/symbols';
+import { SCLangPipeline } from '../sc-lang/sc-lang-pipeline';
 
 main();
 
 function main() {
     console.time('parsing grammar');
     const grammar = GrammarFactory.fromFile('./grammars/sc-lang.grm');
-    // const grammar = GrammarFactory.fromJSONFile('./grammars/grm-lang.json');
+    // console.log(grammar.getAugmentedGrammar().toJSMachineString());
     console.timeEnd('parsing grammar');
 
     console.time('parsing table generation');
     const grammarParser = new GrammarParserSLR1(grammar);
+    // console.log(grammarParser.getParseTable().getNumConflicts());
     console.timeEnd('parsing table generation');
-    // console.log(grammarParser.getParseTable().toString());
-
-    // console.time('write parse table to file');
-    // fs.writeFileSync('./parse-table1.txt', grammarParser.getParseTable().toString());
-    // console.timeEnd('write parse table to file');
 
     console.time('parsing string');
-    const derivation = grammarParser.parseString(`
-def test(a: int&&, b: int[1][2]&) -> bool {
-    return false;
-}
-
-def main() { 
-    const a: string = " asd", b: int[][]&& = 0, c: int*** = null; 
-    *&a; 
-    a.?b(1, 23, 'asdasd')[0]['asdasda']; 
-    a ??= true ? 'true' : 'false'; 
-    let abc: int = -(2 ^^ 2);
-    b = test ?? new CoolBeans();
-}`);
+    const derivation = grammarParser.parseString(
+        `def main ( ) { let a = 0 ; for ( a = 0 ; a < 3 ; i ++ ) { } }`
+    );
+    if (!derivation) return;
+    GrammarUtils.printDerivationTree(derivation);
+    // console.log(grammar.getAugmentedGrammar().toJSMachineString());
+    // console.log(grammarParser.getParseTable().toString());
     const ast = grammarParser.createAST(derivation);
-    printAST(ast);
     console.timeEnd('parsing string');
+
+    console.time('ast validation');
+    const pipeline = new SCLangPipeline();
+    console.log(pipeline.validate(ast));
+    ASTUtils.printAST(ast);
+    console.timeEnd('ast validation');
 }

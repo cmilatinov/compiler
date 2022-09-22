@@ -1,4 +1,8 @@
+import { SourceLocation } from '../tokenizer';
+
 export interface ASTNode {
-    type: string,
-    [key: string]: any,
+    type: string;
+    location?: SourceLocation;
+
+    [key: string]: any;
 }

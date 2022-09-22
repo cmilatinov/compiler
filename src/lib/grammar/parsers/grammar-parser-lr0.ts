@@ -8,7 +8,6 @@ import { Grammar } from '../grammar';
 import { GrammarParserLR } from './grammar-parser-lr';
 
 export class GrammarParserLR0 extends GrammarParser {
-
     protected _collection: CanonicalCollection<LR0Item>;
     protected _parseTable: ParseTable;
 
@@ -19,10 +18,8 @@ export class GrammarParserLR0 extends GrammarParser {
 
     protected init() {
         this._collection = GrammarParserLR.buildCanonicalCollection(LR0Item, this._grammar);
-        this._parseTable = GrammarParserLR.buildParseTable(
-            this._grammar,
-            this._collection,
-            (g) => g.getTerminals()
+        this._parseTable = GrammarParserLR.buildParseTable(this._grammar, this._collection, (g) =>
+            g.getTerminals()
         );
     }
 
@@ -37,5 +34,4 @@ export class GrammarParserLR0 extends GrammarParser {
     public getCanonicalCollection(): CanonicalCollection<LR0Item> {
         return this._collection;
     }
-
 }

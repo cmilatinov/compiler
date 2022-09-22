@@ -1,9 +1,40 @@
-E -> T R
-R -> 'add_op' T R | ε
-T -> F Y
-Y -> 'mul_op' F Y | ε
-F -> '(' E ')' | 'id'
+Expression -> Term Addition
+{{
+    let node = $1;
+    for (const operand of $2) {
+        node = {
+            type: 'BinaryExpression',
+            operator: operand.operator,
+            left: node,
+            right: operand.right
+        };
+    }
+    $$ = node;
+}} ;
 
-'id' -> '[0-9]+|[a-zA-Z_][a-zA-Z0-9_]*'
-'add_op' -> '[+-]'
-'mul_op' -> '[*/]'
+Addition -> 'add_op' Term Addition {{ $$ = [{ operator: $1.value, right: $2 }, ...$3] }} ;
+Addition -> {{ $$ = [] }} ;
+
+Term -> Factor Multiplication
+{{
+    let node = $1;
+    for (const operand of $2) {
+        node = {
+            type: 'BinaryExpression',
+            operator: operand.operator,
+            left: node,
+            right: operand.right
+        };
+    }
+    $$ = node;
+}} ;
+
+Multiplication -> 'mul_op' Factor Multiplication {{ $$ = [{ operator: $1.value, right: $2 }, ...$3] }};
+Multiplication -> {{ $$ = [] }} ;
+
+Factor -> '(' Expression ')' {{ $$ = $2 }} ;
+Factor -> 'number' {{ $$ = $1.value }} ;
+
+'number' -> /(?:[1-9][0-9]*|0)/ ;
+'add_op' -> /[+-]/ ;
+'mul_op' -> /[*/]/ ;

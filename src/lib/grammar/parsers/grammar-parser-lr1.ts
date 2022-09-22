@@ -8,7 +8,6 @@ import { ParseTable } from './lr-parse-table';
 import { GrammarParserLR } from './grammar-parser-lr';
 
 export class GrammarParserLR1 extends GrammarParser {
-
     protected _collection: CanonicalCollection<LR1Item>;
     protected _parseTable: ParseTable;
 
@@ -37,5 +36,4 @@ export class GrammarParserLR1 extends GrammarParser {
     public getCanonicalCollection(): CanonicalCollection<LR1Item> {
         return this._collection;
     }
-
 }

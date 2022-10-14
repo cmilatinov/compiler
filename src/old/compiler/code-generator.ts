@@ -4,7 +4,7 @@ import { LabelGenerator } from './label-generator';
 import { Register, RegisterAllocator } from './register-allocator';
 import { ASTVisitorBase } from '../../lib/ast/ast-visitor';
 
-import * as ASTUtils from '../ast/utils';
+import * as ASTUtils from '../../lib/ast/ast-utils';
 import * as SemanticUtils from '../semantic-analyzer/utils';
 import * as Utils from './utils';
 

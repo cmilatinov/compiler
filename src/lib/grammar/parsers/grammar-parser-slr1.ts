@@ -1,19 +1,16 @@
-import { LR0Item } from './items/lr0-item';
-import { Grammar } from '../grammar';
+import { LR0Item } from './items';
 import { GrammarParserLR0 } from './grammar-parser-lr0';
-import { GrammarParserLR } from './grammar-parser-lr';
+import { LRParseTable } from './lr-parse-table';
 
 export class GrammarParserSLR1 extends GrammarParserLR0 {
-    constructor(grammar: Grammar) {
-        super(grammar);
-    }
-
-    protected init() {
-        this._collection = GrammarParserLR.buildCanonicalCollection(LR0Item, this._grammar);
-        this._parseTable = GrammarParserLR.buildParseTable(
-            this._grammar,
-            this._collection,
-            (g, i) => g.followOf(i.rule.LHS).toJSON()
-        );
+    protected _init(parseTable?: LRParseTable) {
+        if (!parseTable) {
+            this._collection = this._buildCanonicalCollection(LR0Item);
+            this._parseTable = this._buildParseTable(this._collection, (g, i) =>
+                g.followOf(i.rule.LHS).toJSON()
+            );
+        } else {
+            this._parseTable = parseTable;
+        }
     }
 }

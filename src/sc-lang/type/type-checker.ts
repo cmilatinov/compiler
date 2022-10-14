@@ -1,52 +1,50 @@
-import {
-    ASTValidator,
-    DEFAULT_ERROR_PROCESSOR,
-    DEFAULT_WARNING_PROCESSOR
-} from '../../lib/ast/ast-validator';
-import { Expression, IdentifierExpression, LiteralExpression } from '../ast/ast-expression-types';
+import { ASTValidator } from '../../lib/ast/ast-validator';
 import { ASTNode } from '../../lib/ast/ast-node';
-import { BaseTypeSpecifier, FunctionTypeSpecifier, TypeSpecifier } from './type-specifier';
-import * as TypeUtils from './type-utils';
-import { BaseException, TypeException } from '../../lib/exceptions';
 import {
+    BaseTypeSpecifier,
     BOOLEAN_TYPE,
     FLOAT_TYPE,
+    FunctionTypeSpecifier,
     INTEGER_TYPE,
     STRING_TYPE,
+    TypeSpecifier,
     VOID_PTR_TYPE,
     VOID_TYPE
-} from './types';
-import { StringProcessor } from '../../lib/string-processor';
+} from './type-specifier';
+import { BaseException, TypeException } from '../../lib/exceptions';
 import { OperatorDefinitionTable } from '../operator/operator-definitions';
-import { SymbolTable } from '../../lib/symbol-table/symbol-table';
+import { SymbolTable } from '../../lib/symbol-table';
 import {
     BlockStatement,
-    DoWhileStatement,
+    Expression,
     ExpressionStatement,
     ForStatement,
     FunctionDeclaration,
+    IdentifierExpression,
     IfStatement,
+    LiteralExpression,
+    LiteralType,
+    NodeType,
+    OperatorExpression,
+    Program,
+    ReturnStatement,
     VariableDeclaration,
+    VariableDeclarationKeyword,
     VariableStatement,
     WhileStatement
 } from '../ast/ast-types';
 import { SourceLocation } from '../../lib/tokenizer';
 import {
-    AdditionOp,
     AdditiveOperatorList,
     AddressOfOp,
     AssignmentOp,
-    BitwiseNotOp,
     BitwiseOperatorList,
-    DecrementOp,
     DeleteArrayOp,
     DeleteOp,
     DereferenceOp,
     EqualityOperatorList,
     FunctionCallOp,
-    IncrementOp,
     IndexOp,
-    LogicalNotOp,
     LogicalOperatorList,
     MemberAccessDereferenceOp,
     MemberAccessOp,
@@ -58,12 +56,11 @@ import {
     PowerOperatorList,
     RelationalOperatorList,
     ShiftOperatorList,
-    SubtractionOp,
     TernaryOp,
     TypecastOp
 } from '../operator/operators';
 import _ from 'lodash';
-import { LocalVariableEntry } from '../symbol-table/symbol-table-entries';
+import { LocalVariableEntry, SymbolTableEntryType } from '../symbol-table/symbol-table-entries';
 
 interface BaseOptions {
     operator: Operator;
@@ -82,42 +79,46 @@ interface TypecastOptions extends BaseOptions {
     typeSpecifier: BaseTypeSpecifier;
 }
 
-// noinspection JSMethodCanBeStatic,JSUnusedLocalSymbols
+// noinspection JSMethodCanBeStatic, JSUnusedLocalSymbols
 export class TypeChecker extends ASTValidator {
     private readonly _opTable: OperatorDefinitionTable;
-    private readonly _symbolTable: SymbolTable;
 
+    private _symbolTable: SymbolTable;
     private _currentTable: SymbolTable;
+    private _currentFunction: FunctionDeclaration;
 
-    public constructor(
-        warning: StringProcessor = DEFAULT_WARNING_PROCESSOR,
-        error: StringProcessor = DEFAULT_ERROR_PROCESSOR,
-        imports: { symbolTable: SymbolTable }
-    ) {
-        super(warning, error);
-        this._symbolTable = this._currentTable = imports.symbolTable;
+    public constructor() {
+        super();
         this._opTable = new OperatorDefinitionTable();
         this._registerOperatorEntries();
         this._registerOperatorRules();
     }
 
-    public getExports() {
-        return {};
+    public execute({ ast, symbolTable }: { ast: ASTNode; symbolTable: SymbolTable }): any {
+        this._symbolTable = this._currentTable = symbolTable;
+        try {
+            if (!super.validate(ast)) return false;
+            return { ast, symbolTable };
+        } catch (err) {
+            const exception = err as BaseException;
+            this.error(exception.message, exception.location);
+            return false;
+        }
     }
 
     private _literal(expression: LiteralExpression): BaseTypeSpecifier {
         switch (expression.type) {
-            case 'BooleanLiteral':
+            case LiteralType.BOOLEAN:
                 return BOOLEAN_TYPE;
-            case 'IntLiteral':
+            case LiteralType.INTEGER:
                 return INTEGER_TYPE;
-            case 'FloatLiteral':
+            case LiteralType.FLOAT:
                 return FLOAT_TYPE;
-            case 'StringLiteral':
+            case LiteralType.STRING:
                 return STRING_TYPE;
-            case 'NullLiteral':
+            case LiteralType.NULL:
                 return VOID_PTR_TYPE;
-            case 'ThisLiteral':
+            case LiteralType.THIS:
                 return VOID_PTR_TYPE;
         }
         throw new TypeException(`Illegal literal type '${expression.type}'.`, expression.location);
@@ -132,15 +133,15 @@ export class TypeChecker extends ASTValidator {
             );
         }
         switch (entry.type) {
-            case 'function':
-            case 'parameter':
-            case 'local':
-            case 'data':
+            case SymbolTableEntryType.FUNCTION:
+            case SymbolTableEntryType.PARAMETER:
+            case SymbolTableEntryType.LOCAL_VARIABLE:
+            case SymbolTableEntryType.CLASS_VARIABLE:
                 return (entry as any).typeSpecifier;
         }
     }
 
-    private _expression(expression: Expression): BaseTypeSpecifier {
+    private _expression(expression: OperatorExpression): BaseTypeSpecifier {
         const { type, operator, operands, ...options } = expression;
         const types = operands.map((op) => this._type(op));
         const definition = this._opTable
@@ -168,11 +169,22 @@ export class TypeChecker extends ASTValidator {
         return definition.returnType;
     }
 
-    private _type(node: ASTNode): BaseTypeSpecifier {
-        if (node.type === 'Identifier') return this._identifier(node as IdentifierExpression);
-        if (node.type.endsWith('Literal')) return this._literal(node as LiteralExpression);
-        if (node.type.endsWith('TypeSpecifier')) return node as BaseTypeSpecifier;
-        return this._expression(node as Expression);
+    private _type(node: Expression): BaseTypeSpecifier {
+        if (node.typeSpecifier) return node.typeSpecifier;
+        let type: BaseTypeSpecifier;
+        switch (true) {
+            case node.type === NodeType.IDENTIFIER:
+                type = this._identifier(node as IdentifierExpression);
+                break;
+            case Object.values<string>(LiteralType).includes(node.type):
+                type = this._literal(node as LiteralExpression);
+                break;
+            default:
+                type = this._expression(node as OperatorExpression);
+                break;
+        }
+        node.typeSpecifier = type;
+        return type;
     }
 
     private _typecheck(node: ASTNode, property: string, expected?: BaseTypeSpecifier) {
@@ -195,13 +207,33 @@ export class TypeChecker extends ASTValidator {
 
     private _typecast(expression: Expression, type: BaseTypeSpecifier): Expression {
         const expType = this._type(expression);
-        if (TypeUtils.typeEquals(expType, type)) return expression;
+        if (expType.equals(type)) return expression;
 
-        if (TypeUtils.canImplicitCast(expType, type)) {
+        if (expType.canImplicitCast(type)) {
             return {
-                type: 'Expression',
+                type: NodeType.EXPRESSION,
                 location: expression.location,
-                operator: 'type()',
+                operator: TypecastOp,
+                operands: [expression],
+                typeSpecifier: type
+            };
+        }
+
+        if (expType.isReferenceTypeOf(type)) {
+            return {
+                type: NodeType.EXPRESSION,
+                location: expression.location,
+                operator: TypecastOp,
+                operands: [expression],
+                typeSpecifier: type
+            };
+        }
+
+        if (type.isReferenceTypeOf(expType) && this._isLValue(expression)) {
+            return {
+                type: NodeType.EXPRESSION,
+                location: expression.location,
+                operator: TypecastOp,
                 operands: [expression],
                 typeSpecifier: type
             };
@@ -215,26 +247,57 @@ export class TypeChecker extends ASTValidator {
         );
     }
 
+    private _typeSpecifier(spec: BaseTypeSpecifier) {
+        // Check that the type specifier does not refer to
+        // anything other than a class or primitive type
+        if (spec instanceof TypeSpecifier) {
+            const type = spec as TypeSpecifier;
+            const symbol = this._currentTable.lookup(type.value);
+            if (symbol && symbol.type !== SymbolTableEntryType.CLASS) {
+                throw new TypeException(
+                    `Illegal type specifier '${type.toString()}'. ` +
+                        `Type specifier must refer to a primitive type or a previously declared class type.`,
+                    type.location
+                );
+            }
+        } else if (spec instanceof FunctionTypeSpecifier) {
+            const type = spec as FunctionTypeSpecifier;
+            type.parameters.forEach((p) => this._typeSpecifier(p));
+        }
+        return true;
+    }
+
+    private _isLValue(node: ASTNode) {
+        // TODO: Cover cases with class members and array indexes
+        return !Object.values<string>(LiteralType).includes(node.type);
+    }
+
     // =============================== OPERATOR RULES ===============================
 
     private _registerOperatorEntries() {
         // Increment / Decrement operators
         this._opTable.addDefinitionMultiple(
-            [IncrementOp, DecrementOp],
+            [Operator.INCREMENT, Operator.DECREMENT],
             [
                 // Prefix operators
-                new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE),
-                new FunctionTypeSpecifier([FLOAT_TYPE], FLOAT_TYPE),
+                new FunctionTypeSpecifier([INTEGER_TYPE.createReferenceType()], INTEGER_TYPE),
+                new FunctionTypeSpecifier([FLOAT_TYPE.createReferenceType()], FLOAT_TYPE),
 
                 // Postfix w/ dummy int parameter
-                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
-                new FunctionTypeSpecifier([FLOAT_TYPE, INTEGER_TYPE], FLOAT_TYPE)
+                new FunctionTypeSpecifier(
+                    [INTEGER_TYPE.createReferenceType(), INTEGER_TYPE],
+                    INTEGER_TYPE
+                ),
+                new FunctionTypeSpecifier(
+                    [FLOAT_TYPE.createReferenceType(), INTEGER_TYPE],
+                    FLOAT_TYPE
+                )
             ]
         );
 
         // Unary plus / minus operators
         this._opTable.addDefinitionMultiple(
-            [AdditionOp, SubtractionOp],
+            [Operator.UNARY_PLUS, Operator.UNARY_MINUS],
             [
                 new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE),
                 new FunctionTypeSpecifier([FLOAT_TYPE], FLOAT_TYPE)
@@ -243,20 +306,14 @@ export class TypeChecker extends ASTValidator {
 
         // Logical Not operator
         this._opTable.addDefinition(
-            LogicalNotOp,
+            Operator.LOGICAL_NOT,
             new FunctionTypeSpecifier([BOOLEAN_TYPE], BOOLEAN_TYPE)
         );
 
         // Bitwise Not operator
         this._opTable.addDefinition(
-            BitwiseNotOp,
+            Operator.BITWISE_NOT,
             new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE)
-        );
-
-        // String concatenation operator
-        this._opTable.addDefinition(
-            AdditionOp,
-            new FunctionTypeSpecifier([STRING_TYPE, STRING_TYPE], STRING_TYPE)
         );
 
         // Arithmetic operators
@@ -311,14 +368,14 @@ export class TypeChecker extends ASTValidator {
             const fnName = `_${_.lowerFirst(_.camelCase(name))}`;
             const fn = this[fnName];
             if (fn) {
-                this._opTable.addDefinitionRule(operator, fn.bind(this));
+                this._opTable.addDefinitionRule(operator as Operator, fn.bind(this));
             }
         });
     }
 
     private _newOp({ location, typeSpecifier }: NewOptions) {
-        if (TypeUtils.isPointerType(typeSpecifier) || TypeUtils.isPrimitiveType(typeSpecifier)) {
-            const returnType = TypeUtils.createPointerType(typeSpecifier);
+        if (typeSpecifier.isPointerType() || typeSpecifier.isPrimitiveType()) {
+            const returnType = typeSpecifier.createPointerType();
             return [
                 new FunctionTypeSpecifier([], returnType),
                 new FunctionTypeSpecifier([typeSpecifier], returnType)
@@ -332,11 +389,8 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _newArrayOp({ location, typeSpecifier }: NewOptions, typeList: BaseTypeSpecifier[]) {
-        if (TypeUtils.isPointerType(typeSpecifier) || TypeUtils.isPrimitiveType(typeSpecifier)) {
-            const returnType = typeList.reduce(
-                (acc) => TypeUtils.createPointerType(acc),
-                typeSpecifier
-            );
+        if (typeSpecifier.isPointerType() || typeSpecifier.isPrimitiveType()) {
+            const returnType = typeList.reduce((acc) => acc.createPointerType(), typeSpecifier);
             return [
                 new FunctionTypeSpecifier(
                     typeList.map(() => INTEGER_TYPE),
@@ -352,7 +406,7 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _deleteOp({ location }: BaseOptions, [expression]: BaseTypeSpecifier[]) {
-        if (TypeUtils.isPointerType(expression)) {
+        if (expression.isPointerType()) {
             return [new FunctionTypeSpecifier([expression], VOID_TYPE)];
         }
         return new TypeException('Delete expression must evaluate to pointer type.', location);
@@ -367,9 +421,9 @@ export class TypeChecker extends ASTValidator {
         { location, identifier }: MemberAccessOptions,
         [expression]: BaseTypeSpecifier[]
     ) {
-        if (!TypeUtils.isClassType(expression)) {
+        if (!expression.isClassType()) {
             return new TypeException(
-                `Illegal member access on primitive type '${expression.toString()}'.`,
+                `Illegal member access on non-class type '${expression.toString()}'.`,
                 location
             );
         }
@@ -384,7 +438,7 @@ export class TypeChecker extends ASTValidator {
         { location, identifier }: MemberAccessOptions,
         [expression]: BaseTypeSpecifier[]
     ) {
-        if (!TypeUtils.isPointerType(expression)) {
+        if (!expression.isPointerType()) {
             return new TypeException(
                 `Illegal dereferenced member access on ` +
                     `non-pointer type '${expression.toString()}'.`,
@@ -392,8 +446,8 @@ export class TypeChecker extends ASTValidator {
             );
         }
 
-        const classType = TypeUtils.createDereferencedType(expression);
-        if (!TypeUtils.isClassType(classType)) {
+        const classType = expression.createDereferencedType();
+        if (!classType.isClassType()) {
             return new TypeException(
                 `Illegal dereferenced member access on ` +
                     `primitive pointer type '${expression.toString()}'.`,
@@ -407,7 +461,7 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _functionCallOp({ location }: BaseOptions, [fn, ...args]: BaseTypeSpecifier[]) {
-        if (TypeUtils.isFunctionType(fn)) {
+        if (fn.isFunctionType()) {
             const fnType = fn as FunctionTypeSpecifier;
             if (fnType.parameters.length !== args.length) {
                 return new TypeException(
@@ -421,7 +475,7 @@ export class TypeChecker extends ASTValidator {
                 );
             }
 
-            if (fnType.parameters.every((p, i) => p.equals(args[i]))) {
+            if (fnType.parameters.some((p, i) => !p.equals(args[i]))) {
                 return new TypeException(
                     `Function of type '${fnType.toString()}' ` +
                         `called with wrong argument types. ` +
@@ -438,7 +492,7 @@ export class TypeChecker extends ASTValidator {
         }
 
         // TODO
-        if (TypeUtils.isClassType(fn)) {
+        if (fn.isClassType()) {
         }
 
         return new TypeException(
@@ -452,18 +506,15 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _indexOp({ location }: BaseOptions, [expression, index]: BaseTypeSpecifier[]) {
-        if (TypeUtils.isPointerType(expression) && !index.equals(INTEGER_TYPE)) {
+        if (expression.isPointerType() && !index.equals(INTEGER_TYPE)) {
             return new TypeException(
                 `Index expression must evaluate to type ` +
                     `'${INTEGER_TYPE.toString()}', instead got '${index.toString()}'.`,
                 location
             );
-        } else if (TypeUtils.isPointerType(expression)) {
+        } else if (expression.isPointerType()) {
             return [
-                new FunctionTypeSpecifier(
-                    [expression, index],
-                    TypeUtils.createDereferencedType(expression)
-                )
+                new FunctionTypeSpecifier([expression, index], expression.createDereferencedType())
             ];
         }
         // NOTE: Overloaded index operator on class types
@@ -472,24 +523,22 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _addressOfOp(_, [expression]: BaseTypeSpecifier[]) {
-        return [new FunctionTypeSpecifier([expression], TypeUtils.createPointerType(expression))];
+        return [new FunctionTypeSpecifier([expression], expression.createPointerType())];
     }
 
     private _dereferenceOp({ location }: BaseOptions, [expression]: BaseTypeSpecifier[]) {
-        if (!TypeUtils.isPointerType(expression)) {
+        if (!expression.isPointerType()) {
             return new TypeException(
                 `Dereference operator must be used on a pointer type only, ` +
                     `instead got '${expression.toString()}'.`,
                 location
             );
         }
-        return [
-            new FunctionTypeSpecifier([expression], TypeUtils.createDereferencedType(expression))
-        ];
+        return [new FunctionTypeSpecifier([expression], expression.createDereferencedType())];
     }
 
     private _nullCoalescingOp({ location }: BaseOptions, [first]: BaseTypeSpecifier[]) {
-        if (!TypeUtils.isPointerType(first)) {
+        if (!first.isPointerType()) {
             return new TypeException(
                 `Null coalescing expression may only be applied to ` +
                     `pointer types, instead got '${first.toString()}'.`,
@@ -504,39 +553,70 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _assignmentOp(_, [left]: BaseTypeSpecifier[]) {
-        return [new FunctionTypeSpecifier([left, left], left)];
+        if (left.isReferenceType())
+            return [new FunctionTypeSpecifier([left, left.createUnreferencedType()], left)];
+        return [new FunctionTypeSpecifier([left.createReferenceType(), left], left)];
     }
 
     private _visitFunctionDeclaration(decl: FunctionDeclaration) {
         this._currentTable = this._currentTable.lookup(decl.name).symbolTable;
-        return decl.body.map((s) => this._statement(s)).every((s) => s);
+        this._currentFunction = decl;
+        return (
+            decl.parameters.every((p) => this._typeSpecifier(p.typeSpecifier)) &&
+            decl.body.every((s) => this._statement(s))
+        );
     }
 
     private _postVisitFunctionDeclaration(decl: FunctionDeclaration) {
         this._currentTable = this._currentTable.getParentTable() || this._symbolTable;
+        this._currentFunction = undefined;
+        return true;
+    }
+
+    private _postVisitProgram(program: Program) {
+        const hasMainFn = !!program.sourceElements.find((statement) => {
+            if (statement.type !== NodeType.FUNCTION_DECLARATION) return false;
+
+            const fnDecl = statement as FunctionDeclaration;
+            if (fnDecl.name !== 'main') return false;
+
+            if (fnDecl.parameters.length > 0) return false;
+
+            return fnDecl.returnType.equals(INTEGER_TYPE) || fnDecl.returnType.equals(VOID_TYPE);
+        });
+        if (!hasMainFn) {
+            this.error(
+                `Program must contain a valid 'main' function of type 'main() -> void' or 'main() -> int'.`
+            );
+            return false;
+        }
         return true;
     }
 
     private _statement(node: ASTNode) {
         switch (node.type) {
-            case 'VariableStatement':
+            case NodeType.VARIABLE_STATEMENT:
                 return this._variableStatement(node as VariableStatement);
-            case 'ExpressionStatement':
+            case NodeType.EXPRESSION_STATEMENT:
                 return this._expressionStatement(node as ExpressionStatement);
-            case 'IfStatement':
+            case NodeType.IF_STATEMENT:
                 return this._ifStatement(node as IfStatement);
-            case 'WhileStatement':
-            case 'DoWhileStatement':
+            case NodeType.DO_WHILE_STATEMENT:
+            case NodeType.WHILE_STATEMENT:
                 return this._whileStatement(node as WhileStatement);
-            case 'BlockStatement':
+            case NodeType.FOR_STATEMENT:
+                return this._forStatement(node as ForStatement);
+            case NodeType.BLOCK_STATEMENT:
                 return this._blockStatement(node as BlockStatement);
+            case NodeType.RETURN_STATEMENT:
+                return this._returnStatement(node as ReturnStatement);
         }
     }
 
     private _variableStatement(statement: VariableStatement) {
         for (const decl of statement.declList) {
             try {
-                this._verifyVariableDeclaration(decl, statement.declKeyword === 'const');
+                this._variableDeclaration(statement.declKeyword, decl);
             } catch (err) {
                 const exception = err as BaseException;
                 this.error(exception.message, exception.location);
@@ -546,8 +626,11 @@ export class TypeChecker extends ASTValidator {
         return true;
     }
 
-    private _verifyVariableDeclaration(decl: VariableDeclaration, isConst: boolean) {
-        if (!decl.variableInitializer && isConst) {
+    private _variableDeclaration(
+        declKeyword: VariableDeclarationKeyword,
+        decl: VariableDeclaration
+    ) {
+        if (!decl.variableInitializer && declKeyword === VariableDeclarationKeyword.CONST) {
             throw new TypeException(
                 `Const variable '${decl.name}' must have an initializer.`,
                 decl.location
@@ -555,6 +638,7 @@ export class TypeChecker extends ASTValidator {
         }
 
         if (decl.typeSpecifier && decl.variableInitializer) {
+            this._typeSpecifier(decl.typeSpecifier);
             // Type check initializer
             decl.variableInitializer.expression = this._typecast(
                 decl.variableInitializer.expression,
@@ -563,13 +647,16 @@ export class TypeChecker extends ASTValidator {
         } else if (!decl.typeSpecifier && decl.variableInitializer) {
             // Infer variable type from initializer
             decl.typeSpecifier = this._type(decl.variableInitializer.expression);
-            const entry = this._currentTable.lookup(decl.name, 'local') as LocalVariableEntry;
+            const entry = this._currentTable.lookup(
+                decl.name,
+                SymbolTableEntryType.LOCAL_VARIABLE
+            ) as LocalVariableEntry;
             entry.typeSpecifier = decl.typeSpecifier;
         } else if (!decl.typeSpecifier && !decl.variableInitializer) {
             // Illegal declaration
             throw new TypeException(
                 `Illegal variable declaration '${decl.name}'. ` +
-                    `Declaration must contain either a type specifier or initializer.`,
+                    `Declaration must contain either a type specifier or an initializer.`,
                 decl.location
             );
         }
@@ -601,6 +688,18 @@ export class TypeChecker extends ASTValidator {
     private _blockStatement(statement: BlockStatement) {
         for (const innerStatement of statement.statements) {
             if (!this._statement(innerStatement)) return false;
+        }
+        return true;
+    }
+
+    private _returnStatement(statement: ReturnStatement) {
+        if (
+            (statement.expression &&
+                !this._typecheck(statement, 'expression', this._currentFunction.returnType)) ||
+            (!statement.expression && !this._currentFunction.returnType.equals(VOID_TYPE))
+        ) {
+            this.error(`Return statement must match function return type.`, statement.location);
+            return false;
         }
         return true;
     }

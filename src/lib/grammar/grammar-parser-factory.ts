@@ -1,9 +1,6 @@
 import { Grammar } from './grammar';
 import { GrammarParser, GrammarParserType } from './grammar-parser';
-import { GrammarParserLL1 } from './parsers/grammar-parser-ll1';
-import { GrammarParserLR1 } from './parsers/grammar-parser-lr1';
-import { GrammarParserLR0 } from './parsers/grammar-parser-lr0';
-import { GrammarParserSLR1 } from './parsers/grammar-parser-slr';
+import { GrammarParserLL1, GrammarParserLR0, GrammarParserLR1, GrammarParserSLR1 } from './parsers';
 
 export class GrammarParserFactory {
     public static create(type: GrammarParserType, grammar: Grammar): GrammarParser {

@@ -1,26 +1,17 @@
-import { Grammar, GrammarFactory, GrammarParser } from '../../src/lib/grammar';
-import { ASTNode } from '../../src/lib/ast/ast-node';
+import { Grammar, GrammarFactory, GrammarParser } from '../../../src/lib/grammar';
+import { expectAST } from '../ast.utils';
 
 type GrammarParserBuilder = {
     new (grammar: Grammar): GrammarParser;
 };
 
-export function expectAST(input: string, grammarParser: GrammarParser, expectedAST: ASTNode) {
-    const derivation = grammarParser.parseString(input, (msg) => {
-        throw msg;
-    });
-    expect(derivation).toBeDefined();
-    const ast = grammarParser.createAST(derivation);
-    expect(ast).toEqual(expectedAST);
-}
-
-export function createParsingTest(type: string, grammarParserBuilder: GrammarParserBuilder) {
+export function createSimpleParsingTest(type: string, grammarParserBuilder: GrammarParserBuilder) {
     describe(`${type} calculator grammar`, () => {
         let grammar: Grammar;
         let grammarParser: GrammarParser;
 
         beforeAll(() => {
-            grammar = GrammarFactory.fromFile('./grammars/simple1.grm');
+            grammar = GrammarFactory.fromGRMFile('./grammars/simple1.grm');
             grammarParser = new grammarParserBuilder(grammar);
         });
 

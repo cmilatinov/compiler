@@ -1,8 +1,7 @@
 import { Grammar, GrammarRule } from './grammar';
-import { StringProcessor } from '../string-processor';
 import { TokenInstance, Tokenizer, TokenizerFactory } from '../tokenizer';
 import { ASTNode } from '../ast/ast-node';
-import { DEFAULT_ERROR_PROCESSOR } from '../ast/ast-validator';
+import { DiagnosticProducer, PipelineStage } from '../pipeline';
 
 export enum GrammarParserType {
     LL1,
@@ -32,35 +31,44 @@ export class DerivationNode {
     }
 }
 
-export abstract class GrammarParser {
+export abstract class GrammarParser extends DiagnosticProducer implements PipelineStage {
     protected readonly _grammar: Grammar;
     protected readonly _augmentedGrammar: Grammar;
 
     protected constructor(grammar: Grammar) {
+        super();
         this._grammar = grammar;
         this._augmentedGrammar = grammar.getAugmentedGrammar();
     }
 
-    public parseString(input: string, printErr: StringProcessor = DEFAULT_ERROR_PROCESSOR) {
+    public execute(input: string) {
+        return this.parseString(input);
+    }
+
+    public parseString(input: string) {
         const tokenizer = TokenizerFactory.fromString(input, this._grammar.getTokenTypes());
-        return this.parse(tokenizer, printErr);
+        const derivation = this.parse(tokenizer);
+        if (!derivation) return null;
+        return this._createAST(derivation);
     }
 
-    public parseFile(file: string, printErr: StringProcessor = DEFAULT_ERROR_PROCESSOR) {
+    public parseFile(file: string) {
         const tokenizer = TokenizerFactory.fromFile(file, this._grammar.getTokenTypes());
-        return this.parse(tokenizer, printErr);
+        const derivation = this.parse(tokenizer);
+        if (!derivation) return null;
+        return this._createAST(derivation);
     }
 
-    protected abstract parse(tokenizer: Tokenizer, printErr: StringProcessor): DerivationNode;
+    protected abstract parse(tokenizer: Tokenizer): DerivationNode | null;
 
-    public createAST(root: DerivationNode): ASTNode {
+    private _createAST(root: DerivationNode): ASTNode | null {
         if (!root) return null;
 
         if (Grammar.isTerminal(root.token.type)) return root.token;
 
         if (!root.rule) return undefined;
 
-        const children = root.children.map((c) => this.createAST(c));
+        const children = root.children.map((c) => this._createAST(c));
         if (!root.rule.reduction) {
             return {
                 type: root.token.type,
@@ -71,7 +79,7 @@ export abstract class GrammarParser {
         try {
             return root.rule.reduction.apply(undefined, [root.rule.LHS, ...children]);
         } catch (err) {
-            console.error(err);
+            this.error(err.message);
             return null;
         }
     }

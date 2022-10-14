@@ -21,7 +21,7 @@ OptTypeList -> {{ $$ = [] }} ;
 
 Type -> PointerType OptArraySizeList OptReference {{ $$ = TypeSpecifier.fromObject({ ...$1, ...$2, ...$3 }) }} ;
 
-PointerType -> BaseType OptPointerLevel {{ $$ = TypeSpecifier.fromObject({ value: $1.value, ...$2 }) }} ;
+PointerType -> BaseType OptPointerLevel {{ $$ = TypeSpecifier.fromObject({ ...$1, ...$2 }) }} ;
 
 BaseType -> 'id' | 'bool' | 'int' | 'float' | 'string' {{ $$ = $1 }} ;
 
@@ -148,17 +148,7 @@ Expression -> AssignmentExpression {{ $$ = $1 }} ;
 OptExpression -> Expression {{ $$ = $1 }} ;
 OptExpression -> {{ $$ = undefined }} ;
 
-AssignmentExpression -> LeftHandSideExpression '??=' AssignmentExpression
-                      | LeftHandSideExpression '<<=' AssignmentExpression
-                      | LeftHandSideExpression '>>=' AssignmentExpression
-                      | LeftHandSideExpression '&=' AssignmentExpression
-                      | LeftHandSideExpression '^=' AssignmentExpression
-                      | LeftHandSideExpression '|=' AssignmentExpression
-                      | LeftHandSideExpression '*=' AssignmentExpression
-                      | LeftHandSideExpression '/=' AssignmentExpression
-                      | LeftHandSideExpression '%=' AssignmentExpression
-                      | LeftHandSideExpression '+=' AssignmentExpression
-                      | LeftHandSideExpression '-=' AssignmentExpression
+AssignmentExpression -> LeftHandSideExpression 'complex_assign_op' AssignmentExpression
                       | LeftHandSideExpression '=' AssignmentExpression
 {{ $$ = { type: 'Expression', location: $1.location, operator: $2.value, operands: [$1, $3] } }} ;
 AssignmentExpression -> ConditionalExpression {{ $$ = $1 }} ;
@@ -309,3 +299,4 @@ VariableInitializer -> '=' ConditionalExpression {{ $$ = { type: $0, location: $
 'string_literal' -> /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/ ;
 
 'id' -> /[a-zA-Z][a-zA-Z0-9_]*/ ;
+'complex_assign_op' -> /(?:\?\?=|<<=|>>=|&=|\^=|\|=|\*=|\/=|%=|\+=|-=)/ ;

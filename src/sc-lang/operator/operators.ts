@@ -1,134 +1,163 @@
+export enum Operator {
+    NEW = 'new',
+    NEW_ARRAY = 'new[]',
+
+    DELETE = 'delete',
+    DELETE_ARRAY = 'delete[]',
+
+    MEMBER_ACCESS = '.',
+    MEMBER_ACCESS_DEREFERENCE = '->',
+
+    FUNCTION_CALL = '()',
+
+    INCREMENT = '++',
+    DECREMENT = '--',
+
+    TYPECAST = 'type()',
+
+    INDEX = '[]',
+
+    UNARY_PLUS = '+',
+    UNARY_MINUS = '-',
+    LOGICAL_NOT = '!',
+    BITWISE_NOT = '~',
+    ADDRESS_OF = '&',
+    DEREFERENCE = '*',
+
+    POWER = '^^',
+
+    ADDITION = '+',
+    SUBTRACTION = '-',
+    MULTIPLICATION = '*',
+    DIVISION = '/',
+    REMAINDER = '%',
+
+    LEFT_SHIFT = '<<',
+    RIGHT_SHIFT = '>>',
+
+    LESS_THAN = '<',
+    GREATER_THAN = '>',
+    LESS_THAN_EQUAL = '<=',
+    GREATER_THAN_EQUAL = '>=',
+
+    EQUAL = '==',
+    NOT_EQUAL = '!=',
+
+    BITWISE_AND = '&',
+    BITWISE_OR = '|',
+    BITWISE_XOR = '^',
+
+    LOGICAL_AND = '&&',
+    LOGICAL_OR = '||',
+
+    NULL_COALESCING = '??',
+
+    TERNARY = '?:',
+
+    NULL_COALESCING_ASSIGNMENT = '??=',
+    LEFT_SHIFT_ASSIGNMENT = '<<=',
+    RIGHT_SHIFT_ASSIGNMENT = '>>=',
+    BITWISE_AND_ASSIGNMENT = '&=',
+    BITWISE_OR_ASSIGNMENT = '|=',
+    BITWISE_XOR_ASSIGNMENT = '^=',
+    MULTIPLICATION_ASSIGNMENT = '*=',
+    DIVISION_ASSIGNMENT = '/=',
+    REMAINDER_ASSIGNMENT = '%=',
+    ADDITION_ASSIGNMENT = '+=',
+    SUBTRACTION_ASSIGNMENT = '-=',
+    ASSIGNMENT = '='
+}
+
+// TODO: Remove old exported constants, use enum instead
 export const NewOp = 'new' as const;
 export const NewArrayOp = 'new[]' as const;
-export const NewOperatorList = [NewOp, NewArrayOp] as const;
-export type NewOperator = typeof NewOperatorList[number];
+export const NewOperatorList = [Operator.NEW, Operator.NEW_ARRAY] as const;
 
 export const DeleteOp = 'delete' as const;
 export const DeleteArrayOp = 'delete[]' as const;
-export const DeleteOperatorList = [DeleteOp, DeleteArrayOp] as const;
-export type DeleteOperator = typeof DeleteOperatorList[number];
+export const DeleteOperatorList = [Operator.DELETE, Operator.DELETE_ARRAY] as const;
 
 export const MemberAccessOp = '.' as const;
 export const MemberAccessDereferenceOp = '->' as const;
-export const MemberAccessOperatorList = [MemberAccessOp, MemberAccessDereferenceOp] as const;
-export type MemberAccessOperator = typeof MemberAccessOperatorList[number];
+export const MemberAccessOperatorList = [
+    Operator.MEMBER_ACCESS,
+    Operator.MEMBER_ACCESS_DEREFERENCE
+] as const;
 
 export const FunctionCallOp = '()' as const;
-export const FunctionCallOperatorList = [FunctionCallOp] as const;
-export type FunctionCallOperator = typeof FunctionCallOperatorList[number];
+export const FunctionCallOperatorList = [Operator.FUNCTION_CALL] as const;
 
-export const IncrementOp = '++' as const;
-export const DecrementOp = '--' as const;
-export const PostfixOperatorList = [IncrementOp, DecrementOp] as const;
-export type PostfixOperator = typeof PostfixOperatorList[number];
+export const PostfixOperatorList = [Operator.INCREMENT, Operator.DECREMENT] as const;
 
 export const TypecastOp = 'type()' as const;
-export const TypeCastOperatorList = [TypecastOp] as const;
-export type TypeCastOperator = typeof TypeCastOperatorList[number];
+export const TypeCastOperatorList = [Operator.TYPECAST] as const;
 
 export const IndexOp = '[]' as const;
-export const IndexOperatorList = [IndexOp] as const;
-export type IndexOperator = typeof IndexOperatorList[number];
+export const IndexOperatorList = [Operator.INDEX] as const;
 
-export const AdditionOp = '+' as const;
-export const SubtractionOp = '-' as const;
-export const LogicalNotOp = '!' as const;
-export const BitwiseNotOp = '~' as const;
 export const AddressOfOp = '&' as const;
 export const DereferenceOp = '*' as const;
 export const UnaryOperatorList = [
-    IncrementOp,
-    DecrementOp,
-    AdditionOp,
-    SubtractionOp,
-    LogicalNotOp,
-    BitwiseNotOp,
-    AddressOfOp,
-    DereferenceOp
+    Operator.INCREMENT,
+    Operator.DECREMENT,
+    Operator.UNARY_PLUS,
+    Operator.UNARY_MINUS,
+    Operator.LOGICAL_NOT,
+    Operator.BITWISE_NOT,
+    Operator.ADDRESS_OF,
+    Operator.DEREFERENCE
 ] as const;
-export type UnaryOperator = typeof UnaryOperatorList[number];
 
-export const PowerOp = '^^' as const;
-export const PowerOperatorList = [PowerOp] as const;
-export type PowerOperator = typeof PowerOperatorList[number];
+export const PowerOperatorList = [Operator.POWER] as const;
 
-export const MultiplicationOp = '*' as const;
-export const DivisionOp = '/' as const;
-export const RemainderOp = '%' as const;
-export const MultiplicativeOperatorList = [MultiplicationOp, DivisionOp, RemainderOp] as const;
-export type MultiplicativeOperator = typeof MultiplicativeOperatorList[number];
+export const MultiplicativeOperatorList = [
+    Operator.MULTIPLICATION,
+    Operator.DIVISION,
+    Operator.REMAINDER
+] as const;
 
-export const AdditiveOperatorList = [AdditionOp, SubtractionOp] as const;
-export type AdditiveOperator = typeof AdditiveOperatorList[number];
+export const AdditiveOperatorList = [Operator.ADDITION, Operator.SUBTRACTION] as const;
 
-export const LeftShiftOp = '<<' as const;
-export const RightShiftOp = '>>' as const;
-export const ShiftOperatorList = [LeftShiftOp, RightShiftOp] as const;
-export type ShiftOperator = typeof ShiftOperatorList[number];
+export const ShiftOperatorList = [Operator.LEFT_SHIFT, Operator.RIGHT_SHIFT] as const;
 
-export const LessThanEqualOp = '<=' as const;
-export const GreaterThanEqualOp = '>=' as const;
-export const LessThanOp = '<' as const;
-export const GreaterThanOp = '>' as const;
 export const RelationalOperatorList = [
-    LessThanEqualOp,
-    GreaterThanEqualOp,
-    LessThanOp,
-    GreaterThanOp
+    Operator.LESS_THAN,
+    Operator.GREATER_THAN,
+    Operator.LESS_THAN_EQUAL,
+    Operator.GREATER_THAN_EQUAL
 ] as const;
-export type RelationalOperator = typeof RelationalOperatorList[number];
 
-export const EqualOp = '==' as const;
-export const NotEqualOp = '!=' as const;
-export const EqualityOperatorList = [EqualOp, NotEqualOp] as const;
-export type EqualityOperator = typeof EqualityOperatorList[number];
+export const EqualityOperatorList = [Operator.EQUAL, Operator.NOT_EQUAL] as const;
 
-export const BitwiseAndOp = '&' as const;
-export const BitwiseOrOp = '|' as const;
-export const BitwiseXorOp = '^' as const;
-export const BitwiseOperatorList = [BitwiseAndOp, BitwiseOrOp, BitwiseXorOp] as const;
-export type BitwiseOperator = typeof BitwiseOperatorList[number];
+export const BitwiseOperatorList = [
+    Operator.BITWISE_AND,
+    Operator.BITWISE_OR,
+    Operator.BITWISE_XOR
+] as const;
 
-export const LogicalAndOp = '&&' as const;
-export const LogicalOrOp = '||' as const;
-export const LogicalOperatorList = [LogicalAndOp, LogicalOrOp] as const;
-export type LogicalOperator = typeof LogicalOperatorList[number];
+export const LogicalOperatorList = [Operator.LOGICAL_AND, Operator.LOGICAL_OR] as const;
 
 export const NullCoalescingOp = '??' as const;
-export const NullCoalescingOperatorList = [NullCoalescingOp] as const;
-export type NullCoalescingOperator = typeof NullCoalescingOperatorList[number];
+export const NullCoalescingOperatorList = [Operator.NULL_COALESCING] as const;
 
 export const TernaryOp = '?:' as const;
-export const TernaryOperatorList = [TernaryOp] as const;
-export type TernaryOperator = typeof TernaryOperatorList[number];
+export const TernaryOperatorList = [Operator.TERNARY] as const;
 
-export const NullCoalescingAssignmentOp = '??=' as const;
-export const LeftShiftAssignmentOp = '<<=' as const;
-export const RightShiftAssignmentOp = '>>=' as const;
-export const BitwiseAndAssignmentOp = '&=' as const;
-export const BitwiseOrAssignmentOp = '|=' as const;
-export const BitwiseXorAssignmentOp = '^=' as const;
-export const MultiplicationAssignmentOp = '*=' as const;
-export const DivisionAssignmentOp = '/=' as const;
-export const RemainderAssignmentOp = '%=' as const;
-export const AdditionAssignmentOp = '+=' as const;
-export const SubtractionAssignmentOp = '-=' as const;
 export const AssignmentOp = '=' as const;
 export const AssignmentOperatorList = [
-    NullCoalescingAssignmentOp,
-    LeftShiftAssignmentOp,
-    RightShiftAssignmentOp,
-    BitwiseAndAssignmentOp,
-    BitwiseOrAssignmentOp,
-    BitwiseXorAssignmentOp,
-    MultiplicationAssignmentOp,
-    DivisionAssignmentOp,
-    RemainderAssignmentOp,
-    AdditionAssignmentOp,
-    SubtractionAssignmentOp,
-    AssignmentOp
+    Operator.NULL_COALESCING_ASSIGNMENT,
+    Operator.LEFT_SHIFT_ASSIGNMENT,
+    Operator.RIGHT_SHIFT_ASSIGNMENT,
+    Operator.BITWISE_AND_ASSIGNMENT,
+    Operator.BITWISE_OR_ASSIGNMENT,
+    Operator.BITWISE_XOR_ASSIGNMENT,
+    Operator.MULTIPLICATION_ASSIGNMENT,
+    Operator.DIVISION_ASSIGNMENT,
+    Operator.REMAINDER_ASSIGNMENT,
+    Operator.ADDITION_ASSIGNMENT,
+    Operator.SUBTRACTION_ASSIGNMENT,
+    Operator.ASSIGNMENT
 ] as const;
-export type AssignmentOperator = typeof AssignmentOperatorList[number];
 
 export const BinaryOperatorList = [
     ...IndexOperatorList,
@@ -143,7 +172,6 @@ export const BinaryOperatorList = [
     ...NullCoalescingOperatorList,
     ...AssignmentOperatorList
 ] as const;
-export type BinaryOperator = typeof BinaryOperatorList[number];
 
 export const OperatorList = [
     ...NewOperatorList,
@@ -156,20 +184,3 @@ export const OperatorList = [
     ...BinaryOperatorList,
     ...TernaryOperatorList
 ] as const;
-export type Operator = typeof OperatorList[number];
-
-export const StringLiteralType = 'StringLiteral' as const;
-export const FloatLiteralType = 'FloatLiteral' as const;
-export const IntLiteralType = 'IntLiteral' as const;
-export const BooleanLiteralType = 'BooleanLiteral' as const;
-export const NullLiteralType = 'NullLiteral' as const;
-export const ThisLiteralType = 'ThisLiteral' as const;
-export const LiteralList = [
-    StringLiteralType,
-    FloatLiteralType,
-    IntLiteralType,
-    BooleanLiteralType,
-    NullLiteralType,
-    ThisLiteralType
-] as const;
-export type Literal = typeof LiteralList[number];

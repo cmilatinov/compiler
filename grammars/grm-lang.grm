@@ -1,28 +1,28 @@
-Grammar -> ProductionList {{ $$ = $1 }}
+Grammar -> ProductionList {{ $$ = $1 }} ;
 
-ProductionList -> ProductionList Production {{ $$ = [...$1, $2] }}
-ProductionList -> Production {{ $$ = [$1] }}
+ProductionList -> ProductionList Production {{ $$ = [...$1, $2] }} ;
+ProductionList -> Production {{ $$ = [$1] }} ;
 
-Production -> NonTerminalProduction | TerminalProduction {{ $$ = $1 }}
+Production -> NonTerminalProduction | TerminalProduction {{ $$ = $1 }} ;
 
-NonTerminalProduction -> NonTerminal '->' RuleList OptReductionAction ';' {{ $$ = { LHS: $1, RHS: $3, reduction: $4 } }}
-TerminalProduction -> Terminal '->' Regex ';' {{ $$ = { LHS: $1, RHS: [$3] } }}
+NonTerminalProduction -> NonTerminal '->' RuleList OptReductionAction ';' {{ $$ = { LHS: $1, RHS: $3, reduction: $4 } }} ;
+TerminalProduction -> Terminal '->' Regex ';' {{ $$ = { LHS: $1, RHS: [$3] } }} ;
 
-RuleList -> RuleList '|' SymbolList {{ $$ = [...$1, $3] }}
-RuleList -> SymbolList {{ $$ = [$1] }}
+RuleList -> RuleList '|' SymbolList {{ $$ = [...$1, $3] }} ;
+RuleList -> SymbolList {{ $$ = [$1] }} ;
 
-SymbolList -> SymbolList Symbol {{ $$ = [...$1, $2] }}
-SymbolList -> ε {{ $$ = [] }}
+SymbolList -> SymbolList Symbol {{ $$ = [...$1, $2] }} ;
+SymbolList -> {{ $$ = [] }} ;
 
-NonTerminal -> 'non_terminal_literal' {{ $$ = $1.value }}
-Terminal -> 'terminal_literal' {{ $$ = $1.value }}
-Symbol -> 'non_terminal_literal' | 'terminal_literal' {{ $$ = $1.value }}
-Regex -> 'regex_literal' {{ $$ = $1.value.substring(1, $1.value.length - 1) }}
+NonTerminal -> 'non_terminal_literal' {{ $$ = $1.value }} ;
+Terminal -> 'terminal_literal' {{ $$ = $1.value }} ;
+Symbol -> 'non_terminal_literal' | 'terminal_literal' {{ $$ = $1.value }} ;
+Regex -> 'regex_literal' {{ $$ = $1.value.substring(1, $1.value.length - 1) }} ;
 
-OptReductionAction -> 'action_literal' {{ $$ = $1.value }}
-OptReductionAction -> ε {{ $$ = undefined }}
+OptReductionAction -> 'action_literal' {{ $$ = $1.value }} ;
+OptReductionAction -> {{ $$ = undefined }} ;
 
-'action_literal' -> '{{[\s\S]*?}}'
-'non_terminal_literal' -> '(?:[a-zA-Z]+|ε)'
-'terminal_literal' -> '\'[^']*\''
-'regex_literal' -> '/(?![*+?])(?:[^\r\n\[/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*\])+/'
+'action_literal' -> /{{[\s\S]*?}}/ ;
+'non_terminal_literal' -> /(?:[a-zA-Z]+|ε)/ ;
+'terminal_literal' -> /'[^']*'/ ;
+'regex_literal' -> /\/(?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*\])+\// ;

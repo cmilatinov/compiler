@@ -1,41 +1,29 @@
-import {
-    ASTValidator,
-    DEFAULT_ERROR_PROCESSOR,
-    DEFAULT_WARNING_PROCESSOR
-} from '../../lib/ast/ast-validator';
+import { ASTValidator } from '../../lib/ast/ast-validator';
 import { ASTNode } from '../../lib/ast/ast-node';
-import { SymbolTable } from '../../lib/symbol-table/symbol-table';
-import { SymbolTableEntry } from '../../lib/symbol-table/symbol-table-entry';
-import { FunctionEntry, FunctionParameterEntry, LocalVariableEntry } from './symbol-table-entries';
+import { SymbolTable, SymbolTableEntry } from '../../lib/symbol-table';
+import {
+    FunctionEntry,
+    FunctionParameterEntry,
+    LocalVariableEntry,
+    SymbolTableEntryType
+} from './symbol-table-entries';
 import { BaseException, SemanticException } from '../../lib/exceptions';
-import { VOID_TYPE } from '../type/types';
-import * as TypeUtils from '../type/type-utils';
-import { FunctionTypeSpecifier } from '../type/type-specifier';
-import { StringProcessor } from '../../lib/string-processor';
+import { FunctionTypeSpecifier, VOID_TYPE } from '../type/type-specifier';
 import { FunctionDeclaration, VariableStatement } from '../ast/ast-types';
 
 export class SymbolTableGenerator extends ASTValidator {
     private readonly _globalTable: SymbolTable;
     private _currentTable: SymbolTable;
 
-    public constructor(
-        warning: StringProcessor = DEFAULT_WARNING_PROCESSOR,
-        error: StringProcessor = DEFAULT_ERROR_PROCESSOR
-    ) {
-        super(warning, error);
+    public constructor() {
+        super();
         this._currentTable = this._globalTable = new SymbolTable();
     }
 
-    public getExports(): any {
-        return {
-            symbolTable: this._globalTable
-        };
-    }
-
-    protected visit(node: ASTNode): boolean {
+    public execute(input: ASTNode): any {
         try {
-            super.visit(node);
-            return true;
+            if (!super.validate(input)) return false;
+            return { ast: input, symbolTable: this._globalTable };
         } catch (err) {
             const exception = err as BaseException;
             this.error(exception.message, exception.location);
@@ -76,7 +64,12 @@ export class SymbolTableGenerator extends ASTValidator {
 
     private _insertVariableEntry(entry: LocalVariableEntry) {
         this._checkShadowedMembers(entry);
-        if (!this._currentTable.insert(entry, ['local', 'parameter'])) {
+        if (
+            !this._currentTable.insert(entry, [
+                SymbolTableEntryType.LOCAL_VARIABLE,
+                SymbolTableEntryType.PARAMETER
+            ])
+        ) {
             throw new SemanticException(
                 `Multiply declared identifier '${entry.name}'.`,
                 entry.location
@@ -95,10 +88,7 @@ export class SymbolTableGenerator extends ASTValidator {
             existingEntries.find(
                 (e) =>
                     e.type === 'function' &&
-                    TypeUtils.functionTypeEquals(
-                        (e as FunctionEntry).typeSpecifier,
-                        funcEntry.typeSpecifier
-                    )
+                    (e as FunctionEntry).typeSpecifier.equals(funcEntry.typeSpecifier)
             )
         ) {
             throw new SemanticException(
@@ -125,16 +115,19 @@ export class SymbolTableGenerator extends ASTValidator {
 
     private _visitFunctionDeclaration(decl: FunctionDeclaration) {
         const symbolTable = new SymbolTable(decl.name, this._currentTable);
-        const parameters: FunctionParameterEntry[] = (decl.parameters as ASTNode[]).map((p) => ({
-            type: 'parameter',
-            location: p.location,
-            name: p.name,
-            references: 0,
-            parentTable: symbolTable,
-            typeSpecifier: p.typeSpecifier
-        }));
+        const parameters: FunctionParameterEntry[] = (decl.parameters as ASTNode[]).map(
+            (p, index) => ({
+                type: SymbolTableEntryType.PARAMETER,
+                location: p.location,
+                name: p.name,
+                references: 0,
+                parentTable: symbolTable,
+                typeSpecifier: p.typeSpecifier,
+                index
+            })
+        );
         const functionEntry: FunctionEntry = {
-            type: 'function',
+            type: SymbolTableEntryType.FUNCTION,
             location: decl.location,
             name: decl.name,
             references: 0,
@@ -147,6 +140,7 @@ export class SymbolTableGenerator extends ASTValidator {
             )
         };
         this._insertFunctionEntry(functionEntry);
+        return true;
     }
 
     private _postVisitFunctionDeclaration(decl: FunctionDeclaration) {
@@ -157,7 +151,7 @@ export class SymbolTableGenerator extends ASTValidator {
     private _visitVariableStatement(node: VariableStatement) {
         for (const decl of node.declList) {
             const localVarEntry: LocalVariableEntry = {
-                type: 'local',
+                type: SymbolTableEntryType.LOCAL_VARIABLE,
                 location: decl.location,
                 name: decl.name,
                 references: 0,
@@ -167,5 +161,6 @@ export class SymbolTableGenerator extends ASTValidator {
             };
             this._insertVariableEntry(localVarEntry);
         }
+        return true;
     }
 }

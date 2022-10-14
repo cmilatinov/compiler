@@ -1,4 +1,5 @@
 import { ASTNode } from './ast-node';
+import { BaseTypeSpecifier } from '../../sc-lang/type/type-specifier';
 
 export function printAST(
     node: ASTNode,
@@ -65,4 +66,16 @@ export function getNodeChildren(node: ASTNode): ASTNode[] {
                 Array.isArray(value) ? [...accumulator, ...value] : [...accumulator, value],
             []
         );
+}
+
+export function traverse(node: ASTNode) {
+    _visit.call(this, '_visit', node);
+    getNodeChildren(node).forEach((c) => traverse.call(this, c));
+    _visit.call(this, '_postVisit', node);
+}
+
+function _visit(prefix: string, node: ASTNode) {
+    if (typeof this[`${prefix}${node.type}`] === 'function') {
+        this[`${prefix}${node.type}`](node);
+    }
 }

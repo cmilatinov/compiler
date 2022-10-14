@@ -64,7 +64,7 @@ export class OperatorDefinitionTable {
         const definitions = (this._opDefinitions[operator] || []).filter(
             (d) =>
                 d.parameters.length === typeList.length &&
-                d.parameters.some((p, i) => p.equals(typeList[i]))
+                (d.parameters.length === 1 || d.parameters.some((p, i) => p.equals(typeList[i])))
         );
 
         const ruleDefs = this._opDefinitionRules[operator]

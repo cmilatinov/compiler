@@ -1,18 +1,18 @@
 import _ from 'lodash';
 
-import { DEFAULT_PROCESSOR, StringProcessor } from '../../string-processor';
 import { Tokenizer } from '../../tokenizer';
 import { Grammar, GrammarRule } from '../grammar';
 import { DerivationNode, GrammarParser } from '../grammar-parser';
 import { EOF, EPSILON } from '../../symbols';
 import * as LibUtils from '../../utils';
+import { DEFAULT_PROCESSOR, StringProcessor } from '../../string-processor';
 
 export class GrammarParserLL1 extends GrammarParser {
     private _parsingTableLL1: object;
 
     constructor(grammar: Grammar) {
         super(grammar);
-        this.buildParseTableLL1();
+        this._buildParseTableLL1();
         if (!this.isLL1()) {
             throw new Error(
                 'Supplied grammar is not LL(1). Consider using another type of ' +
@@ -21,7 +21,7 @@ export class GrammarParserLL1 extends GrammarParser {
         }
     }
 
-    private buildParseTableLL1() {
+    private _buildParseTableLL1() {
         if (this._parsingTableLL1) return this._parsingTableLL1;
 
         this._parsingTableLL1 = {};
@@ -58,10 +58,7 @@ export class GrammarParserLL1 extends GrammarParser {
         return this._parsingTableLL1;
     }
 
-    protected parse(
-        tokenizer: Tokenizer,
-        printErr: StringProcessor = DEFAULT_PROCESSOR
-    ): DerivationNode {
+    protected parse(tokenizer: Tokenizer): DerivationNode | null {
         const root = new DerivationNode(
             {
                 type: this._grammar.getStartSymbol(),
@@ -84,7 +81,7 @@ export class GrammarParserLL1 extends GrammarParser {
                         lookahead = tokenizer.next();
                         flag = true;
                     } catch (err) {
-                        printErr(`${err.message}\n`);
+                        this.error(err.message);
                     }
                 }
             } else {
@@ -93,20 +90,20 @@ export class GrammarParserLL1 extends GrammarParser {
                     : undefined;
                 if (!rule) {
                     if (this._grammar.firstOf(node.token.type).has(EPSILON)) continue;
-                    printErr(
+                    this.error(
                         `${lookahead.location.toString()} Unexpected token '${Grammar.stringify(
                             lookahead.type
                         )}', expected '${Grammar.stringify(node.token.type)}'.\n`
                     );
                     return null;
                 } else if (Array.isArray(rule)) {
-                    printErr(
+                    this.error(
                         `${lookahead.location.toString()} Unexpected token '${Grammar.stringify(
                             lookahead.type
-                        )}', expected '${Grammar.stringify(node.token.type)}'.\n`
+                        )}', expected '${Grammar.stringify(node.token.type)}'.`
                     );
-                    printErr(`Multiple reduction rules found:\n`);
-                    rule.forEach((r) => printErr(`     ${r.toString()}\n`));
+                    this.error(`Multiple reduction rules found:`);
+                    rule.forEach((r) => this.error(`     ${r.toString()}`));
                     return null;
                 }
 

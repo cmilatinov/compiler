@@ -2,7 +2,7 @@ import { OrderedSet, Set } from 'immutable';
 import _ from 'lodash';
 
 import { LR0Item } from './lr0-item';
-import { GraphState } from '../collection/canonical-collection';
+import { GraphState } from '../collection';
 import { Grammar, GrammarRule } from '../../grammar';
 import { EOF, EPSILON } from '../../../symbols';
 

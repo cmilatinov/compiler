@@ -1,28 +1,34 @@
-import { LR0Item } from './items/lr0-item';
-import { LRItemBuilder } from './items/lr-item';
+import { LR0Item, LRItemBuilder } from './items';
 import { Grammar } from '../grammar';
-import { CanonicalCollection, GraphState } from './collection/canonical-collection';
+import { CanonicalCollection, GraphState } from './collection';
 import { OrderedSet } from 'immutable';
-import { ParseTable, ParseTableAction, ParseTableActionType } from './lr-parse-table';
+import { LRParseTable, ParseTableAction, ParseTableActionType } from './lr-parse-table';
 import { EOF, EPSILON } from '../../symbols';
 import { TokenInstance, Tokenizer } from '../../tokenizer';
-import { StringProcessor } from '../../string-processor';
-import { DerivationNode } from '../grammar-parser';
+import { DerivationNode, GrammarParser } from '../grammar-parser';
 
-export class GrammarParserLR {
-    public static buildCanonicalCollection<T extends LR0Item>(
-        ctor: LRItemBuilder<T>,
-        grammar: Grammar
+export abstract class GrammarParserLR<ItemType extends LR0Item> extends GrammarParser {
+    protected _collection: CanonicalCollection<ItemType>;
+    protected _parseTable: LRParseTable;
+
+    constructor(grammar: Grammar, parseTable?: LRParseTable) {
+        super(grammar);
+        this._init(parseTable);
+    }
+
+    protected abstract _init(parseTable?: LRParseTable);
+
+    protected _buildCanonicalCollection<T extends LR0Item>(
+        ctor: LRItemBuilder<T>
     ): CanonicalCollection<T> {
-        const augmentedGrammar = grammar.getAugmentedGrammar();
-        const augmentedRule = augmentedGrammar.getRules()[0];
+        const augmentedRule = this._augmentedGrammar.getRules()[0];
         type StackItem = [OrderedSet<T>, GraphState<T>, string];
         const itemStack: StackItem[] = [[OrderedSet([new ctor(augmentedRule, 0)]), undefined, '']];
 
         const states: GraphState<T>[] = [];
         while (itemStack.length > 0) {
             const [itemSet, prevState, transitionSymbol] = itemStack.shift();
-            const state = new GraphState(ctor, grammar, itemSet);
+            const state = new GraphState(ctor, this._grammar, itemSet);
             state.closure();
 
             const existingState = states.find((s) => s.equals(state));
@@ -40,7 +46,6 @@ export class GrammarParserLR {
                     )
                         .toJSON()
                         .map<StackItem>((s) => {
-                            // console.log(`goto(${states.length - 1}, ${s})`);
                             return [state.goto(s), state, s];
                         })
                 );
@@ -55,13 +60,12 @@ export class GrammarParserLR {
         return new CanonicalCollection<T>(states);
     }
 
-    public static buildParseTable<T extends LR0Item>(
-        grammar: Grammar,
+    protected _buildParseTable<T extends LR0Item>(
         collection: CanonicalCollection<T>,
         reduceTerminalSetFn: (grammar: Grammar, item: T) => string[]
-    ): ParseTable {
-        const table = new ParseTable();
-        const rules = grammar.getAugmentedGrammar().getRules();
+    ): LRParseTable {
+        const table = new LRParseTable();
+        const rules = this._augmentedGrammar.getRules();
         collection.states.forEach((s, i) => {
             if (s.isFinal()) {
                 // Accept
@@ -69,7 +73,7 @@ export class GrammarParserLR {
                     const item = s.items.toJSON()[0];
                     if (
                         item.dotIndex > 0 &&
-                        item.rule.RHS[item.dotIndex - 1] === grammar.getStartSymbol()
+                        item.rule.RHS[item.dotIndex - 1] === this._grammar.getStartSymbol()
                     ) {
                         table.addEntry(i, EOF, new ParseTableAction(ParseTableActionType.ACCEPT));
                         return;
@@ -81,7 +85,7 @@ export class GrammarParserLR {
                 const ruleIndexes = items.map((i) => rules.findIndex((r) => r.equals(i.rule)));
                 items.forEach((item, itemIndex) => {
                     const ruleIndex = ruleIndexes[itemIndex];
-                    reduceTerminalSetFn(grammar, item).forEach((t) =>
+                    reduceTerminalSetFn(this._grammar, item).forEach((t) =>
                         table.addEntry(
                             i,
                             t,
@@ -111,15 +115,10 @@ export class GrammarParserLR {
         return table;
     }
 
-    public static parse(
-        grammar: Grammar,
-        parseTable: ParseTable,
-        tokenizer: Tokenizer,
-        printErr: StringProcessor
-    ): DerivationNode {
+    public parse(tokenizer: Tokenizer): DerivationNode | null {
         const stack: (number | DerivationNode)[] = [0];
 
-        const rules = grammar.getAugmentedGrammar().getRules();
+        const rules = this._augmentedGrammar.getRules();
         let lookahead: TokenInstance = tokenizer.next();
 
         const fetchNextToken = () => {
@@ -128,7 +127,7 @@ export class GrammarParserLR {
                     lookahead = tokenizer.next();
                     break;
                 } catch (err) {
-                    printErr(`${err.message}\n`);
+                    this.error(err.message);
                 }
             }
         };
@@ -139,8 +138,8 @@ export class GrammarParserLR {
             // Get action from table
             const action: ParseTableAction =
                 typeof element === 'number'
-                    ? parseTable.getAction(element, lookahead.type)
-                    : parseTable.getAction(
+                    ? this._parseTable.getAction(element, lookahead.type)
+                    : this._parseTable.getAction(
                           stack.find((e) => typeof e === 'number') as number,
                           element.rule.LHS
                       );
@@ -183,14 +182,18 @@ export class GrammarParserLR {
                     break;
 
                 case ParseTableActionType.REJECT:
-                    printErr(
-                        `${lookahead.location.toString().underline} Unexpected token '${
-                            lookahead.value
-                        }'.\n`
-                    );
+                    this.error(`Unexpected token '${lookahead.value}'.`, lookahead.location);
                     return null;
             }
         }
         return null;
+    }
+
+    public get parseTable(): LRParseTable {
+        return this._parseTable;
+    }
+
+    public get canonicalCollection(): CanonicalCollection<any> {
+        return this._collection;
     }
 }

@@ -38,7 +38,7 @@ export class ParseTableAction {
     }
 }
 
-export class ParseTable {
+export class LRParseTable {
     private readonly _table: { [key: string]: ParseTableAction | ParseTableAction[] }[];
 
     public constructor(table?: any) {
@@ -144,7 +144,6 @@ export class ParseTable {
                 }
             })
         );
-        console.log(i);
         return this._table
             .map((e) =>
                 Object.keys(e)
@@ -158,7 +157,17 @@ export class ParseTable {
         fs.writeFileSync(file, JSON.stringify(this._table));
     }
 
-    public static load(file: string): ParseTable {
-        return new ParseTable(JSON.parse(fs.readFileSync(file).toString()));
+    public static load(file: string): LRParseTable {
+        const table = JSON.parse(fs.readFileSync(file).toString());
+        table.forEach((state) => {
+            Object.entries(state).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    state[key] = value.map((v) => new ParseTableAction(v.type, v.value));
+                } else if (typeof value === 'object') {
+                    state[key] = new ParseTableAction(value['type'], value['value']);
+                }
+            });
+        });
+        return new LRParseTable(table);
     }
 }

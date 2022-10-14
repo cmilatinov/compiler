@@ -1,21 +1,45 @@
 import { BaseTypeSpecifier, FunctionTypeSpecifier } from '../type/type-specifier';
-import { SymbolTable } from '../../lib/symbol-table/symbol-table';
-import { SymbolTableEntry } from '../../lib/symbol-table/symbol-table-entry';
+import { SymbolTable, SymbolTableEntry } from '../../lib/symbol-table';
+import { Address } from '../../lib/code-generator/address';
+import { InstructionBlock } from '../../lib/tac';
 
-export interface FunctionEntry extends SymbolTableEntry {
-    type: 'function';
-    typeSpecifier: FunctionTypeSpecifier;
-    symbolTable: SymbolTable;
-    parameters: FunctionParameterEntry[];
+export enum SymbolTableEntryType {
+    FUNCTION = 'function',
+    PARAMETER = 'parameter',
+    LOCAL_VARIABLE = 'local',
+    CLASS_VARIABLE = 'data',
+    CLASS = 'class',
+    TEMPORARY = 'temporary'
 }
 
-export interface FunctionParameterEntry extends SymbolTableEntry {
-    type: 'parameter';
+export enum VariableType {
+    INTEGER = 'int',
+    FLOATING = 'float',
+    COMPLEX = 'complex'
+}
+
+export interface TemporaryEntry extends SymbolTableEntry {
+    type: SymbolTableEntryType.TEMPORARY;
     typeSpecifier: BaseTypeSpecifier;
 }
 
+export interface FunctionEntry extends SymbolTableEntry {
+    type: SymbolTableEntryType.FUNCTION;
+    typeSpecifier: FunctionTypeSpecifier;
+    symbolTable: SymbolTable;
+    parameters: FunctionParameterEntry[];
+    instructionBlock?: InstructionBlock;
+    returnAddress?: Address;
+}
+
+export interface FunctionParameterEntry extends SymbolTableEntry {
+    type: SymbolTableEntryType.PARAMETER;
+    typeSpecifier: BaseTypeSpecifier;
+    paramType?: VariableType;
+}
+
 export interface LocalVariableEntry extends SymbolTableEntry {
-    type: 'local';
+    type: SymbolTableEntryType.LOCAL_VARIABLE;
     typeSpecifier: BaseTypeSpecifier;
     constant: boolean;
 }

@@ -1,37 +1,14 @@
-import { DerivationNode, GrammarParser } from '../grammar-parser';
-import { Tokenizer } from '../../tokenizer';
-import { StringProcessor } from '../../string-processor';
-import { CanonicalCollection } from './collection/canonical-collection';
-import { ParseTable } from './lr-parse-table';
-import { LR0Item } from './items/lr0-item';
-import { Grammar } from '../grammar';
+import { LRParseTable } from './lr-parse-table';
+import { LR0Item } from './items';
 import { GrammarParserLR } from './grammar-parser-lr';
 
-export class GrammarParserLR0 extends GrammarParser {
-    protected _collection: CanonicalCollection<LR0Item>;
-    protected _parseTable: ParseTable;
-
-    constructor(grammar: Grammar) {
-        super(grammar);
-        this.init();
-    }
-
-    protected init() {
-        this._collection = GrammarParserLR.buildCanonicalCollection(LR0Item, this._grammar);
-        this._parseTable = GrammarParserLR.buildParseTable(this._grammar, this._collection, (g) =>
-            g.getTerminals()
-        );
-    }
-
-    protected parse(tokenizer: Tokenizer, printErr: StringProcessor): DerivationNode {
-        return GrammarParserLR.parse(this._grammar, this._parseTable, tokenizer, printErr);
-    }
-
-    public getParseTable(): ParseTable {
-        return this._parseTable;
-    }
-
-    public getCanonicalCollection(): CanonicalCollection<LR0Item> {
-        return this._collection;
+export class GrammarParserLR0 extends GrammarParserLR<LR0Item> {
+    protected _init(parseTable?: LRParseTable) {
+        if (!parseTable) {
+            this._collection = this._buildCanonicalCollection(LR0Item);
+            this._parseTable = this._buildParseTable(this._collection, (g) => g.getTerminals());
+        } else {
+            this._parseTable = parseTable;
+        }
     }
 }

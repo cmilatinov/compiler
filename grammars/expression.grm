@@ -1,4 +1,4 @@
-S -> Expression ;
+S -> Expression {{ $$ = $1 }} ;
 
 Expression -> Expression ',' AssignmentExpression
 {{ $$ = { type: 'Expression', location: $1.location, operator: ',', operands: [$1, $3] } }} ;

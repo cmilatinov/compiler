@@ -1,4 +1,4 @@
-import { Grammar, GrammarFactory } from '../src/lib/grammar/grammar';
+import { Grammar, GrammarFactory } from '../src/lib/grammar';
 import { SourceLocation, TokenInstance, Tokenizer } from '../src/lib/tokenizer';
 
 function expectTokens(input: string, grammar: Grammar, tokens: TokenInstance[]) {
@@ -33,7 +33,7 @@ describe('calculator grammar', () => {
     let grammar: Grammar;
 
     beforeAll(() => {
-        grammar = GrammarFactory.fromFile('./grammars/simple1.grm');
+        grammar = GrammarFactory.fromGRMFile('./grammars/simple1.grm');
     });
 
     it('unexpected tokens', () => {

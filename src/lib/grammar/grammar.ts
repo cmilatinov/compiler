@@ -19,7 +19,7 @@ export class GrammarRule {
     public readonly RHS: string[];
     public readonly reduction?: Function;
 
-    public constructor(lhs, rhs, reduction?) {
+    public constructor(lhs: string, rhs: string[], reduction?: Function) {
         this.LHS = lhs;
         this.RHS = rhs;
         this.reduction = reduction;
@@ -41,8 +41,12 @@ export class GrammarRule {
 }
 
 export class GrammarFactory {
+    private static _grmGrammar: Grammar;
+
     public static grm() {
-        return this.fromJSON(GRMLang);
+        if (this._grmGrammar) return this._grmGrammar;
+        this._grmGrammar = GrammarFactory.fromJSON(GRMLang);
+        return this._grmGrammar;
     }
 
     public static fromJSONFile(file: string) {
@@ -89,17 +93,15 @@ export class GrammarFactory {
         return new Grammar(grammarRules);
     }
 
-    public static fromFile(file: string): Grammar {
+    public static fromGRMFile(file: string): Grammar {
         const grammarStr: string = fs.readFileSync(file).toString().replace(/\r\n/g, '\n');
-        return this.fromString(grammarStr);
+        return this.fromGRMString(grammarStr);
     }
 
-    public static fromString(grammarStr: string): Grammar {
+    public static fromGRMString(grammarStr: string): Grammar {
         const grammar = this.grm();
         const grammarParser = GrammarParserFactory.create(GrammarParserType.SLR1, grammar);
-        const derivation = grammarParser.parseString(grammarStr);
-        if (!derivation) return null;
-        const ast = grammarParser.createAST(derivation);
+        const ast = grammarParser.parseString(grammarStr);
         if (!ast) return null;
         const grammarRules = (ast as unknown as any[]).reduce(
             (acc, p) => [

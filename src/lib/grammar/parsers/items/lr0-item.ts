@@ -1,10 +1,10 @@
+import { OrderedSet } from 'immutable';
 import _ from 'lodash';
 
 import { Grammar, GrammarRule } from '../../grammar';
 import { LRItem } from './lr-item';
 import { EPSILON } from '../../../symbols';
-import { OrderedSet } from 'immutable';
-import { GraphState } from '../collection/canonical-collection';
+import { GraphState } from '../collection';
 
 export class LR0Item implements LRItem {
     public readonly rule: GrammarRule;

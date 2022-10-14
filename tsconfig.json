@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "ES2021",
+        "target": "ESNext",
         "module": "commonjs",
         "moduleResolution": "Node",
         "outDir": "bin/js",

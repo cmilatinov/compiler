@@ -475,7 +475,9 @@ export class TypeChecker extends ASTValidator {
                 );
             }
 
-            if (fnType.parameters.some((p, i) => !p.equals(args[i]))) {
+            if (
+                fnType.parameters.some((p, i) => !p.equals(args[i]) && !args[i].canImplicitCast(p))
+            ) {
                 return new TypeException(
                     `Function of type '${fnType.toString()}' ` +
                         `called with wrong argument types. ` +
@@ -610,6 +612,8 @@ export class TypeChecker extends ASTValidator {
                 return this._blockStatement(node as BlockStatement);
             case NodeType.RETURN_STATEMENT:
                 return this._returnStatement(node as ReturnStatement);
+            case NodeType.EMPTY_STATEMENT:
+                return true;
         }
     }
 
@@ -667,29 +671,30 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _ifStatement(statement: IfStatement) {
-        return this._typecheck(statement, 'condition', BOOLEAN_TYPE);
+        return (
+            this._typecheck(statement, 'condition', BOOLEAN_TYPE) &&
+            this._statement(statement.ifBody) &&
+            this._statement(statement.elseBody)
+        );
     }
 
     private _whileStatement(statement: WhileStatement) {
-        if (!this._typecheck(statement, 'condition', BOOLEAN_TYPE)) return false;
-        return this._statement(statement.body);
+        return (
+            this._typecheck(statement, 'condition', BOOLEAN_TYPE) && this._statement(statement.body)
+        );
     }
 
     private _forStatement(statement: ForStatement) {
-        if (
-            !this._typecheck(statement, 'expressions[0]') ||
-            !this._typecheck(statement, 'expressions[1]') ||
-            !this._typecheck(statement, 'expressions[2]')
-        )
-            return false;
-        return this._statement(statement.body);
+        return (
+            this._typecheck(statement, 'expressions[0]') &&
+            this._typecheck(statement, 'expressions[1]') &&
+            this._typecheck(statement, 'expressions[2]') &&
+            this._statement(statement.body)
+        );
     }
 
     private _blockStatement(statement: BlockStatement) {
-        for (const innerStatement of statement.statements) {
-            if (!this._statement(innerStatement)) return false;
-        }
-        return true;
+        return statement.statements.every((s) => this._statement(s));
     }
 
     private _returnStatement(statement: ReturnStatement) {

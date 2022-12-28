@@ -1,38 +1,46 @@
+import { Set } from 'immutable';
 import {
-    AllocateInstruction,
     AssignmentInstruction,
-    BaseInstruction,
+    BaseInstructionTAC,
     ConditionalJumpInstruction,
     CopyInstruction,
-    DeclareInstruction,
-    FreeInstruction,
+    EndFunctionInstruction,
     FunctionInstruction,
     InstructionBlock,
+    isVariable,
     JumpInstruction,
     ParameterInstruction,
     ProcedureCallInstruction,
     ReturnInstruction
 } from './instruction';
 import { DiagnosticProducer } from '../pipeline';
+import { LabelGenerator } from '../code-generator';
 
-export class CodeGenerator extends DiagnosticProducer {
-    private readonly _blocks: InstructionBlock[] = [];
-    private _currentBlock: InstructionBlock;
+export class CodeGeneratorTAC extends DiagnosticProducer {
+    private readonly _lbGen: LabelGenerator = new LabelGenerator('B', 0);
+    protected readonly _blocks: InstructionBlock[] = [];
+    protected _currentBlock: InstructionBlock;
 
-    protected _block(label?: string, standalone: boolean = false) {
+    protected _block(label?: string, standalone: boolean = false, setupControl: boolean = true) {
         const block: InstructionBlock = {
-            label,
-            instructions: []
+            label: label || this._lbGen.generateLabel(),
+            instructions: [],
+            control: { prev: [], next: [] },
+            live: Set<string>()
         };
         if (!standalone && this._currentBlock) {
             this._currentBlock.next = block;
+            if (setupControl) {
+                this._currentBlock.control.next.push(block);
+                block.control.prev.push(this._currentBlock);
+            }
         }
         this._blocks.push(block);
         this._currentBlock = block;
         return block;
     }
 
-    protected _instruction<T extends BaseInstruction>(
+    protected _instruction<T extends BaseInstructionTAC>(
         type: { new (operands: T['operands']): T },
         operands: T['operands']
     ): T {
@@ -82,25 +90,33 @@ export class CodeGenerator extends DiagnosticProducer {
         return this._instruction(ReturnInstruction, { value });
     }
 
-    protected _decl(variable: string) {
-        return this._instruction(DeclareInstruction, { targetVariable: variable });
-    }
-
-    protected _alloc(temporary: string) {
-        return this._instruction(AllocateInstruction, { targetTemporary: temporary });
-    }
-
-    protected _free(identifier: string) {
-        return this._instruction(FreeInstruction, { targetIdentifier: identifier });
-    }
-
     protected _function(label: string) {
         return this._instruction(FunctionInstruction, { label });
     }
 
+    protected _endFunction(label: string) {
+        return this._instruction(EndFunctionInstruction, { label });
+    }
+
+    protected _isVariable(name?: string) {
+        return isVariable(name);
+    }
+
+    protected _isLoopingBlock(block: InstructionBlock) {
+        // TODO: Perform control graph search to see if we can end up executing this same block
+        return block.control.next.includes(block);
+    }
+
     public toString() {
         return this._blocks
-            .map((b) => b.instructions.map((i) => i.toString()).join('\n'))
+            .map(
+                (b) =>
+                    `live = ${b.live.join(', ')}\n` +
+                    `next = ${b.control.next.map((b) => b.label).join(', ')}\n` +
+                    `${b.label} {\n${b.instructions
+                        .map((i) => `    ${i.toString()}`)
+                        .join('\n')}\n}`
+            )
             .join('\n\n');
     }
 }

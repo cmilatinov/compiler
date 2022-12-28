@@ -15,7 +15,7 @@ export enum SymbolTableEntryType {
 export enum VariableType {
     INTEGER = 'int',
     FLOATING = 'float',
-    COMPLEX = 'complex'
+    CLASS = 'class'
 }
 
 export interface TemporaryEntry extends SymbolTableEntry {
@@ -35,7 +35,7 @@ export interface FunctionEntry extends SymbolTableEntry {
 export interface FunctionParameterEntry extends SymbolTableEntry {
     type: SymbolTableEntryType.PARAMETER;
     typeSpecifier: BaseTypeSpecifier;
-    paramType?: VariableType;
+    varType?: VariableType;
 }
 
 export interface LocalVariableEntry extends SymbolTableEntry {

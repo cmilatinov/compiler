@@ -1,11 +1,14 @@
 import _ from 'lodash';
 import { SourceLocation } from '../../lib/tokenizer';
+import { VariableType } from '../symbol-table/symbol-table-entries';
 
 export enum PrimitiveType {
     VOID = 'void',
     BOOLEAN = 'boolean',
     INTEGER = 'int',
+    LONG = 'long',
     FLOAT = 'float',
+    DOUBLE = 'double',
     STRING = 'string'
 }
 
@@ -57,6 +60,27 @@ export abstract class BaseTypeSpecifier {
         return this.isReferenceType() && this.createUnreferencedType().equals(type);
     }
 
+    public isIntegerType() {
+        if (this.isPrimitiveType()) {
+            const pType = this as unknown as TypeSpecifier;
+            return pType.value === PrimitiveType.INTEGER || pType.value === PrimitiveType.BOOLEAN;
+        }
+        return this.isReferenceType() || this.isPointerType() || this.isFunctionType();
+    }
+
+    public isFloatingType() {
+        return (
+            this.isPrimitiveType() &&
+            (this as unknown as TypeSpecifier).value === PrimitiveType.FLOAT
+        );
+    }
+
+    public getVariableType() {
+        if (this.isIntegerType()) return VariableType.INTEGER;
+        if (this.isFloatingType()) return VariableType.FLOATING;
+        return VariableType.CLASS;
+    }
+
     public canImplicitCast(dest: BaseTypeSpecifier) {
         const primitiveTypeCasts = {
             [PrimitiveType.STRING]: [PrimitiveType.BOOLEAN],
@@ -68,6 +92,12 @@ export abstract class BaseTypeSpecifier {
             const srcType = (this as unknown as TypeSpecifier).value;
             const destType = (dest as TypeSpecifier).value;
             return primitiveTypeCasts[srcType].includes(destType);
+        }
+        // Void pointer to any other pointer
+        if (this.equals(VOID_PTR_TYPE) && dest.isPointerType()) return true;
+
+        if (this.isPointerType() && dest.isPointerType()) {
+            return;
         }
         return false;
     }

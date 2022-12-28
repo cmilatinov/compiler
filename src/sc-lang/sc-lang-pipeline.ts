@@ -3,9 +3,10 @@ import { TypeChecker } from './type/type-checker';
 import { ParsingPipeline } from '../lib/pipeline';
 import { GrammarParserSLR1 } from '../lib/grammar/parsers';
 import { GrammarFactory } from '../lib/grammar';
-import { CodeGeneratorSCLang } from './code-generator/tac/code-generator';
+import { CodeGeneratorSCLangTAC } from './code-generator/tac/code-generator';
 import * as fs from 'fs';
 import { LRParseTable } from '../lib/grammar/parsers/lr-parse-table';
+import { CodeGeneratorSCLangX64New } from './code-generator/x64/code-generator-new';
 
 export class SCLangPipeline extends ParsingPipeline {
     constructor() {
@@ -18,7 +19,8 @@ export class SCLangPipeline extends ParsingPipeline {
             ),
             new SymbolTableGenerator(),
             new TypeChecker(),
-            new CodeGeneratorSCLang()
+            new CodeGeneratorSCLangTAC(),
+            new CodeGeneratorSCLangX64New()
         );
     }
 }

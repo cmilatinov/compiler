@@ -42,7 +42,7 @@ export abstract class GrammarParser extends DiagnosticProducer implements Pipeli
     }
 
     public execute(input: string) {
-        return this.parseString(input);
+        return this.parseFile(input);
     }
 
     public parseString(input: string) {

@@ -1,3 +1,5 @@
+import { BaseTypeSpecifier } from '../../type/type-specifier';
+
 export enum Register {
     RAX = 'rax',
     RBX = 'rbx',
@@ -95,3 +97,26 @@ export const FLOATING_PARAMETER_REGISTERS = [
     Register.XMM6,
     Register.XMM7
 ];
+
+export class RegisterAllocatorSCLang {
+    private _registerMap: { [key: string]: string } = {};
+
+    allocate(identifier: string, type: BaseTypeSpecifier) {
+        const registerBank = type.isIntegerType() ? INTEGER_REGISTERS : FLOATING_REGISTERS;
+        const register = registerBank.find((r) => !this._registerMap[r]);
+        if (register) this._registerMap[register] = identifier;
+        return register || null;
+    }
+
+    free(register: string) {
+        delete this._registerMap[register];
+    }
+
+    clear() {
+        this._registerMap = {};
+    }
+
+    getAllocatedIdentifier(register: string) {
+        return this._registerMap[register] || null;
+    }
+}

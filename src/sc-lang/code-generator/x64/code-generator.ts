@@ -1,4 +1,4 @@
-import { CodeGenerator, LabelGenerator, RegisterAllocator } from '../../../lib/code-generator';
+import { CodeGeneratorASM, LabelGenerator, RegisterAllocator } from '../../../lib/code-generator';
 import { PipelineStage } from '../../../lib/pipeline';
 import {
     FLOATING_PARAMETER_REGISTERS,
@@ -8,7 +8,7 @@ import {
     Register,
     REGISTER_SIZE
 } from './register';
-import { Instruction } from './instruction';
+import { InstructionX64 } from './instruction';
 import { ASTNode } from '../../../lib/ast/ast-node';
 import * as ASTUtils from '../../../lib/ast/ast-utils';
 import {
@@ -41,7 +41,7 @@ import {
 import { Operator } from '../../operator/operators';
 import { ConstantGenerator } from './constant-generator';
 
-export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
+export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements PipelineStage {
     private readonly _labelGen: LabelGenerator = new LabelGenerator();
     private readonly _constantGen: ConstantGenerator = new ConstantGenerator();
     private _symbolTable: SymbolTable;
@@ -154,19 +154,19 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
                     this._typeSize(INTEGER_TYPE)
                 );
                 const label = this._constantGen.generateNumber(literal.value);
-                this._instruction(Instruction.MOV, addr.register, label);
+                this._instruction(InstructionX64.MOV, addr.register, label);
                 return addr;
             }
             case LiteralType.FLOAT: {
                 const addr = this._registerAlloc(VariableType.FLOATING, this._typeSize(FLOAT_TYPE));
                 const label = this._constantGen.generateNumber(literal.value);
-                this._instruction(Instruction.MOV, addr.register, label);
+                this._instruction(InstructionX64.MOV, addr.register, label);
                 return addr;
             }
             case LiteralType.STRING: {
                 const addr = this._registerAlloc();
                 const label = this._constantGen.generateString(literal.value);
-                this._instruction(Instruction.MOV, addr.register, label);
+                this._instruction(InstructionX64.MOV, addr.register, label);
                 return addr;
             }
         }
@@ -201,31 +201,25 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
             case VariableType.INTEGER:
                 switch (operator) {
                     case Operator.INCREMENT:
-                        this._instruction(Instruction.INC, regAddress.register);
+                        this._instruction(InstructionX64.INC, regAddress.register);
                         break;
                     case Operator.DECREMENT:
-                        this._instruction(Instruction.DEC, regAddress.register);
+                        this._instruction(InstructionX64.DEC, regAddress.register);
                         break;
                     case Operator.UNARY_PLUS:
                         break;
                     case Operator.UNARY_MINUS:
-                        this._instruction(Instruction.NEG, regAddress.register);
+                        this._instruction(InstructionX64.NEG, regAddress.register);
                         break;
                     case Operator.LOGICAL_NOT:
                         if (!operand.type.equals(BOOLEAN_TYPE)) {
-                            this._instruction(Instruction.CMP, regAddress.register, '0');
-                        // this._instruction(Instruction.SETE, )
+                            this._instruction(InstructionX64.CMP, regAddress.register, '0');
+                            // this._instruction(Instruction.SETE, )
                         }
-                        this._instruction(
-                            Instruction.NOT,
-                            regAddress.register
-                        );
+                        this._instruction(InstructionX64.NOT, regAddress.register);
                         break;
                     case Operator.BITWISE_NOT:
-                        this._instruction(
-                            Instruction.NOT,
-                            regAddress.register
-                        );
+                        this._instruction(InstructionX64.NOT, regAddress.register);
                         break;
                     case Operator.ADDRESS_OF:
                     case Operator.DEREFERENCE:
@@ -236,8 +230,12 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
                     case Operator.INCREMENT:
                         const label = this._constantGen.generateNumber('1');
                         const one = this._registerAlloc(VariableType.FLOATING, REGISTER_SIZE);
-                        this._instruction(Instruction.CVTSI2SD, one.register, `qword [${label}]`);
-                        this._instruction(Instruction.ADDSD, regAddress.register, one.register);
+                        this._instruction(
+                            InstructionX64.CVTSI2SD,
+                            one.register,
+                            `qword [${label}]`
+                        );
+                        this._instruction(InstructionX64.ADDSD, regAddress.register, one.register);
                         this._free(one);
                         break;
                     case Operator.DECREMENT:
@@ -257,7 +255,7 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
     private _paramType(type: BaseTypeSpecifier) {
         if (this._isIntegerType(type)) return VariableType.INTEGER;
         if (this._isFloatingType(type)) return VariableType.FLOATING;
-        return VariableType.COMPLEX;
+        return VariableType.CLASS;
     }
 
     private _typeSize(type: BaseTypeSpecifier) {
@@ -283,7 +281,7 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
                     register: Register.XMM0,
                     size
                 };
-            case VariableType.COMPLEX:
+            case VariableType.CLASS:
                 return {
                     type: AddressType.REGISTER_ABSOLUTE,
                     register: Register.RAX,
@@ -376,24 +374,24 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
 
     private _functionInit(decl: FunctionDeclaration) {
         this._paramList();
-        this._instructionLabelled(decl.name, Instruction.ENDBR64);
+        this._instructionLabelled(decl.name, InstructionX64.ENDBR64);
         this._stackFrameInit();
     }
 
     private _functionEnd() {
         this._stackFrameEnd();
-        this._instruction(Instruction.RET);
+        this._instruction(InstructionX64.RET);
     }
 
     private _stackFrameInit() {
-        this._instruction(Instruction.PUSH, Register.RBP);
-        this._instruction(Instruction.MOV, Register.RBP, Register.RSP);
+        this._instruction(InstructionX64.PUSH, Register.RBP);
+        this._instruction(InstructionX64.MOV, Register.RBP, Register.RSP);
         this._currentFunctionStack = [];
     }
 
     private _stackFrameEnd() {
         this._stackCleanup();
-        this._instruction(Instruction.POP, Register.RBP);
+        this._instruction(InstructionX64.POP, Register.RBP);
     }
 
     private _stackOffset() {
@@ -412,7 +410,7 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
         }
         if (cleanup.length > 0) {
             const size = cleanup.reduce((sum, addr) => sum + addr.size, 0);
-            this._instruction(Instruction.ADD, Register.RSP, size.toString());
+            this._instruction(InstructionX64.ADD, Register.RSP, size.toString());
         }
     }
 
@@ -420,7 +418,7 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
         const size = this._currentFunctionStack
             .filter((s) => !!s)
             .reduce((sum, addr) => sum + addr.size, 0);
-        this._instruction(Instruction.ADD, Register.RSP, size.toString());
+        this._instruction(InstructionX64.ADD, Register.RSP, size.toString());
         this._currentFunctionStack = [];
     }
 
@@ -438,7 +436,7 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
     }
 
     private _stackAlloc(size: number): Address {
-        this._instruction(Instruction.SUB, Register.RSP, size.toString());
+        this._instruction(InstructionX64.SUB, Register.RSP, size.toString());
         const addr = { type: AddressType.STACK, stackOffset: this._stackOffset() - size, size };
         this._currentFunctionStack.push(addr);
         return addr;
@@ -516,27 +514,31 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
             case AddressType.REGISTER:
                 switch (dest.type) {
                     case AddressType.REGISTER:
-                        this._instruction(Instruction.MOV, dest.register, src.register);
+                        this._instruction(InstructionX64.MOV, dest.register, src.register);
                         break;
                     case AddressType.REGISTER_ABSOLUTE:
                         this._instruction(
-                            Instruction.MOV,
+                            InstructionX64.MOV,
                             this._asmRegisterAbsAddr(dest),
                             src.register
                         );
                         break;
                     case AddressType.STACK:
-                        this._instruction(Instruction.MOV, this._asmStackAddr(dest), src.register);
+                        this._instruction(
+                            InstructionX64.MOV,
+                            this._asmStackAddr(dest),
+                            src.register
+                        );
                         break;
                     case AddressType.STACK_ABSOLUTE:
                         const address = this._registerAlloc(VariableType.INTEGER, REGISTER_SIZE);
                         this._instruction(
-                            Instruction.MOV,
+                            InstructionX64.MOV,
                             address.register,
                             this._asmStackAddr(dest)
                         );
                         this._instruction(
-                            Instruction.MOV,
+                            InstructionX64.MOV,
                             this._asmRegisterAbsAddr(address),
                             src.register
                         );
@@ -548,7 +550,7 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
                 switch (dest.type) {
                     case AddressType.REGISTER:
                         this._instruction(
-                            Instruction.MOV,
+                            InstructionX64.MOV,
                             dest.register,
                             `${this._asmPtr(size)} [${src.register}]`
                         );
@@ -579,7 +581,11 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
             case AddressType.STACK:
                 switch (dest.type) {
                     case AddressType.REGISTER:
-                        this._instruction(Instruction.MOV, dest.register, this._asmStackAddr(src));
+                        this._instruction(
+                            InstructionX64.MOV,
+                            dest.register,
+                            this._asmStackAddr(src)
+                        );
                         break;
                     case AddressType.REGISTER_ABSOLUTE:
                         // TODO: Account for larger operand sizes (loop over size and transfer chunks)
@@ -597,12 +603,12 @@ export class CodeGeneratorX8664 extends CodeGenerator implements PipelineStage {
                     case AddressType.REGISTER:
                         const address = this._registerAlloc(VariableType.INTEGER, REGISTER_SIZE);
                         this._instruction(
-                            Instruction.MOV,
+                            InstructionX64.MOV,
                             address.register,
                             this._asmStackAddr(src)
                         );
                         this._instruction(
-                            Instruction.MOV,
+                            InstructionX64.MOV,
                             dest.register,
                             this._asmRegisterAbsAddr(address)
                         );

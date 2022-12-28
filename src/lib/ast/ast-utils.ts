@@ -1,5 +1,4 @@
 import { ASTNode } from './ast-node';
-import { BaseTypeSpecifier } from '../../sc-lang/type/type-specifier';
 
 export function printAST(
     node: ASTNode,

@@ -1,6 +1,6 @@
 import { DiagnosticProducer } from '../pipeline';
 
-export class CodeGenerator extends DiagnosticProducer {
+export class CodeGeneratorASM extends DiagnosticProducer {
     private _code: string = '';
 
     private _generateCode(code: string) {

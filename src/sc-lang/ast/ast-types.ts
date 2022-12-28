@@ -13,6 +13,7 @@ export enum NodeType {
     FOR_STATEMENT = 'ForStatement',
     IF_STATEMENT = 'IfStatement',
     RETURN_STATEMENT = 'ReturnStatement',
+    EMPTY_STATEMENT = 'EmptyStatement',
     VARIABLE_STATEMENT = 'VariableStatement',
     VARIABLE_DECLARATION = 'VariableDeclaration',
     VARIABLE_INITIALIZER = 'VariableInitializer',
@@ -42,7 +43,7 @@ export interface Program extends ASTNode {
 
 export interface ExpressionStatement extends ASTNode {
     type: NodeType.EXPRESSION_STATEMENT;
-    expression: ASTNode;
+    expression: Expression;
 }
 
 export interface Expression extends ASTNode {

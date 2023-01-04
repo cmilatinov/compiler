@@ -68,35 +68,23 @@ export enum Operator {
     ASSIGNMENT = '='
 }
 
-// TODO: Remove old exported constants, use enum instead
-export const NewOp = 'new' as const;
-export const NewArrayOp = 'new[]' as const;
 export const NewOperatorList = [Operator.NEW, Operator.NEW_ARRAY] as const;
 
-export const DeleteOp = 'delete' as const;
-export const DeleteArrayOp = 'delete[]' as const;
 export const DeleteOperatorList = [Operator.DELETE, Operator.DELETE_ARRAY] as const;
 
-export const MemberAccessOp = '.' as const;
-export const MemberAccessDereferenceOp = '->' as const;
 export const MemberAccessOperatorList = [
     Operator.MEMBER_ACCESS,
     Operator.MEMBER_ACCESS_DEREFERENCE
 ] as const;
 
-export const FunctionCallOp = '()' as const;
 export const FunctionCallOperatorList = [Operator.FUNCTION_CALL] as const;
 
 export const PostfixOperatorList = [Operator.INCREMENT, Operator.DECREMENT] as const;
 
-export const TypecastOp = 'type()' as const;
 export const TypeCastOperatorList = [Operator.TYPECAST] as const;
 
-export const IndexOp = '[]' as const;
 export const IndexOperatorList = [Operator.INDEX] as const;
 
-export const AddressOfOp = '&' as const;
-export const DereferenceOp = '*' as const;
 export const UnaryOperatorList = [
     Operator.INCREMENT,
     Operator.DECREMENT,
@@ -137,13 +125,10 @@ export const BitwiseOperatorList = [
 
 export const LogicalOperatorList = [Operator.LOGICAL_AND, Operator.LOGICAL_OR] as const;
 
-export const NullCoalescingOp = '??' as const;
 export const NullCoalescingOperatorList = [Operator.NULL_COALESCING] as const;
 
-export const TernaryOp = '?:' as const;
 export const TernaryOperatorList = [Operator.TERNARY] as const;
 
-export const AssignmentOp = '=' as const;
 export const AssignmentOperatorList = [
     Operator.NULL_COALESCING_ASSIGNMENT,
     Operator.LEFT_SHIFT_ASSIGNMENT,

@@ -11,7 +11,8 @@ import {
     JumpInstruction,
     ParameterInstruction,
     ProcedureCallInstruction,
-    ReturnInstruction
+    ReturnInstruction,
+    toStringLiveSets
 } from './instruction';
 import { DiagnosticProducer } from '../pipeline';
 import { LabelGenerator } from '../code-generator';
@@ -111,10 +112,10 @@ export class CodeGeneratorTAC extends DiagnosticProducer {
         return this._blocks
             .map(
                 (b) =>
-                    `live = ${b.live.join(', ')}\n` +
-                    `next = ${b.control.next.map((b) => b.label).join(', ')}\n` +
+                    `live = { ${b.live.join(', ')} }\n` +
+                    `next = { ${b.control.next.map((b) => b.label).join(', ')} }\n` +
                     `${b.label} {\n${b.instructions
-                        .map((i) => `    ${i.toString()}`)
+                        .map((i) => `    ${i.toString()}`.padEnd(30) + toStringLiveSets(i.live))
                         .join('\n')}\n}`
             )
             .join('\n\n');

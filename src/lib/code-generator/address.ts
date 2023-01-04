@@ -1,8 +1,9 @@
+import _ from 'lodash';
+
 export enum AddressType {
-    REGISTER = 'register',
-    REGISTER_ABSOLUTE = 'register_absolute',
-    STACK = 'stack',
-    STACK_ABSOLUTE = 'stack_absolute'
+    REGISTER = 0,
+    STACK = 1,
+    MEMORY = 2
 }
 
 export interface Address {
@@ -10,4 +11,8 @@ export interface Address {
     size: number;
     register?: string;
     stackOffset?: number;
+}
+
+export function addressEquals(first: Address, second: Address) {
+    return _.isEqual(first, second);
 }

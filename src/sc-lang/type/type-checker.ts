@@ -4,10 +4,8 @@ import {
     BaseTypeSpecifier,
     BOOLEAN_TYPE,
     FLOAT_TYPE,
-    FunctionTypeSpecifier,
     INTEGER_TYPE,
     STRING_TYPE,
-    TypeSpecifier,
     VOID_PTR_TYPE,
     VOID_TYPE
 } from './type-specifier';
@@ -33,69 +31,20 @@ import {
     VariableStatement,
     WhileStatement
 } from '../ast/ast-types';
-import { SourceLocation } from '../../lib/tokenizer';
-import {
-    AdditiveOperatorList,
-    AddressOfOp,
-    AssignmentOp,
-    BitwiseOperatorList,
-    DeleteArrayOp,
-    DeleteOp,
-    DereferenceOp,
-    EqualityOperatorList,
-    FunctionCallOp,
-    IndexOp,
-    LogicalOperatorList,
-    MemberAccessDereferenceOp,
-    MemberAccessOp,
-    MultiplicativeOperatorList,
-    NewArrayOp,
-    NewOp,
-    NullCoalescingOp,
-    Operator,
-    PowerOperatorList,
-    RelationalOperatorList,
-    ShiftOperatorList,
-    TernaryOp,
-    TypecastOp
-} from '../operator/operators';
-import _ from 'lodash';
+import { Operator } from '../operator/operators';
 import { LocalVariableEntry, SymbolTableEntryType } from '../symbol-table/symbol-table-entries';
+import { OperatorImplementations } from '../operator/operator-implementations';
+import _ from 'lodash';
 
-interface BaseOptions {
-    operator: Operator;
-    location: SourceLocation;
-}
-
-interface NewOptions extends BaseOptions {
-    typeSpecifier: TypeSpecifier;
-}
-
-interface MemberAccessOptions extends BaseOptions {
-    identifier: string;
-}
-
-interface TypecastOptions extends BaseOptions {
-    typeSpecifier: BaseTypeSpecifier;
-}
-
-// noinspection JSMethodCanBeStatic, JSUnusedLocalSymbols
 export class TypeChecker extends ASTValidator {
-    private readonly _opTable: OperatorDefinitionTable;
-
+    private _opTable: OperatorDefinitionTable;
     private _symbolTable: SymbolTable;
     private _currentTable: SymbolTable;
     private _currentFunction: FunctionDeclaration;
 
-    public constructor() {
-        super();
-        this._opTable = new OperatorDefinitionTable();
-        this._registerOperatorEntries();
-        this._registerOperatorRules();
-    }
-
     public execute({ ast, symbolTable }: { ast: ASTNode; symbolTable: SymbolTable }): any {
         this._symbolTable = this._currentTable = symbolTable;
+        this._opTable = OperatorImplementations.createOperatorTable(this._symbolTable);
         try {
             if (!super.validate(ast)) return false;
             return { ast, symbolTable };
@@ -148,7 +97,7 @@ export class TypeChecker extends ASTValidator {
             .getCandidateDefinitions(operator, options, types)
             .find((d) => {
                 try {
-                    d.parameters.forEach(
+                    d.type.parameters.forEach(
                         (p, i) =>
                             (expression.operands[i] = this._typecast(expression.operands[i], p))
                     );
@@ -166,7 +115,7 @@ export class TypeChecker extends ASTValidator {
             );
         }
 
-        return definition.returnType;
+        return definition.type.returnType;
     }
 
     private _type(node: Expression): BaseTypeSpecifier {
@@ -213,7 +162,7 @@ export class TypeChecker extends ASTValidator {
             return {
                 type: NodeType.EXPRESSION,
                 location: expression.location,
-                operator: TypecastOp,
+                operator: Operator.TYPECAST,
                 operands: [expression],
                 typeSpecifier: type
             };
@@ -223,7 +172,7 @@ export class TypeChecker extends ASTValidator {
             return {
                 type: NodeType.EXPRESSION,
                 location: expression.location,
-                operator: TypecastOp,
+                operator: Operator.TYPECAST,
                 operands: [expression],
                 typeSpecifier: type
             };
@@ -233,7 +182,7 @@ export class TypeChecker extends ASTValidator {
             return {
                 type: NodeType.EXPRESSION,
                 location: expression.location,
-                operator: TypecastOp,
+                operator: Operator.TYPECAST,
                 operands: [expression],
                 typeSpecifier: type
             };
@@ -248,21 +197,29 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _typeSpecifier(spec: BaseTypeSpecifier) {
+        if (spec.isFunctionType()) {
+            const type = spec.asFunctionType();
+            type.parameters.forEach((p) => this._typeSpecifier(p));
+            this._typeSpecifier(type.returnType);
+            return true;
+        }
+
         // Check that the type specifier does not refer to
         // anything other than a class or primitive type
-        if (spec instanceof TypeSpecifier) {
-            const type = spec as TypeSpecifier;
+        const type = spec.asType();
+        if (type.isClassType()) {
             const symbol = this._currentTable.lookup(type.value);
-            if (symbol && symbol.type !== SymbolTableEntryType.CLASS) {
+            if (!symbol) {
                 throw new TypeException(
                     `Illegal type specifier '${type.toString()}'. ` +
                         `Type specifier must refer to a primitive type or a previously declared class type.`,
                     type.location
                 );
             }
-        } else if (spec instanceof FunctionTypeSpecifier) {
-            const type = spec as FunctionTypeSpecifier;
-            type.parameters.forEach((p) => this._typeSpecifier(p));
+        } else if (type.isReferenceType()) {
+            return this._typeSpecifier(type.createUnreferencedType());
+        } else if (type.isPointerType()) {
+            return this._typeSpecifier(type.createDereferencedType());
         }
         return true;
     }
@@ -272,294 +229,7 @@ export class TypeChecker extends ASTValidator {
         return !Object.values<string>(LiteralType).includes(node.type);
     }
 
-    // =============================== OPERATOR RULES ===============================
-
-    private _registerOperatorEntries() {
-        // Increment / Decrement operators
-        this._opTable.addDefinitionMultiple(
-            [Operator.INCREMENT, Operator.DECREMENT],
-            [
-                // Prefix operators
-                new FunctionTypeSpecifier([INTEGER_TYPE.createReferenceType()], INTEGER_TYPE),
-                new FunctionTypeSpecifier([FLOAT_TYPE.createReferenceType()], FLOAT_TYPE),
-
-                // Postfix w/ dummy int parameter
-                new FunctionTypeSpecifier(
-                    [INTEGER_TYPE.createReferenceType(), INTEGER_TYPE],
-                    INTEGER_TYPE
-                ),
-                new FunctionTypeSpecifier(
-                    [FLOAT_TYPE.createReferenceType(), INTEGER_TYPE],
-                    FLOAT_TYPE
-                )
-            ]
-        );
-
-        // Unary plus / minus operators
-        this._opTable.addDefinitionMultiple(
-            [Operator.UNARY_PLUS, Operator.UNARY_MINUS],
-            [
-                new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE),
-                new FunctionTypeSpecifier([FLOAT_TYPE], FLOAT_TYPE)
-            ]
-        );
-
-        // Logical Not operator
-        this._opTable.addDefinition(
-            Operator.LOGICAL_NOT,
-            new FunctionTypeSpecifier([BOOLEAN_TYPE], BOOLEAN_TYPE)
-        );
-
-        // Bitwise Not operator
-        this._opTable.addDefinition(
-            Operator.BITWISE_NOT,
-            new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE)
-        );
-
-        // Arithmetic operators
-        this._opTable.addDefinitionMultiple(
-            [...PowerOperatorList, ...MultiplicativeOperatorList, ...AdditiveOperatorList],
-            [
-                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
-                new FunctionTypeSpecifier([FLOAT_TYPE, FLOAT_TYPE], FLOAT_TYPE)
-            ]
-        );
-
-        // Shift & Bitwise operators
-        this._opTable.addDefinitionMultiple(
-            [...ShiftOperatorList, ...BitwiseOperatorList],
-            [new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE)]
-        );
-
-        // Relational and equality operators
-        this._opTable.addDefinitionMultiple(
-            [...RelationalOperatorList, ...EqualityOperatorList],
-            [
-                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], BOOLEAN_TYPE),
-                new FunctionTypeSpecifier([FLOAT_TYPE, FLOAT_TYPE], BOOLEAN_TYPE)
-            ]
-        );
-
-        // Logical operators
-        this._opTable.addDefinitionMultiple(
-            [...LogicalOperatorList],
-            [new FunctionTypeSpecifier([BOOLEAN_TYPE, BOOLEAN_TYPE], BOOLEAN_TYPE)]
-        );
-    }
-
-    private _registerOperatorRules() {
-        const operators = {
-            NewOp,
-            NewArrayOp,
-            DeleteOp,
-            DeleteArrayOp,
-            MemberAccessOp,
-            MemberAccessDereferenceOp,
-            FunctionCallOp,
-            TypecastOp,
-            IndexOp,
-            AddressOfOp,
-            DereferenceOp,
-            NullCoalescingOp,
-            TernaryOp,
-            AssignmentOp
-        };
-        Object.entries(operators).forEach(([name, operator]) => {
-            const fnName = `_${_.lowerFirst(_.camelCase(name))}`;
-            const fn = this[fnName];
-            if (fn) {
-                this._opTable.addDefinitionRule(operator as Operator, fn.bind(this));
-            }
-        });
-    }
-
-    private _newOp({ location, typeSpecifier }: NewOptions) {
-        if (typeSpecifier.isPointerType() || typeSpecifier.isPrimitiveType()) {
-            const returnType = typeSpecifier.createPointerType();
-            return [
-                new FunctionTypeSpecifier([], returnType),
-                new FunctionTypeSpecifier([typeSpecifier], returnType)
-            ];
-        }
-
-        // TODO: Lookup class constructor
-        this._symbolTable.lookup(typeSpecifier.value);
-
-        return new TypeException('', location);
-    }
-
-    private _newArrayOp({ location, typeSpecifier }: NewOptions, typeList: BaseTypeSpecifier[]) {
-        if (typeSpecifier.isPointerType() || typeSpecifier.isPrimitiveType()) {
-            const returnType = typeList.reduce((acc) => acc.createPointerType(), typeSpecifier);
-            return [
-                new FunctionTypeSpecifier(
-                    typeList.map(() => INTEGER_TYPE),
-                    returnType
-                )
-            ];
-        }
-
-        // TODO: Lookup class constructor with no args
-        this._symbolTable.lookup(typeSpecifier.value);
-
-        return new TypeException('', location);
-    }
-
-    private _deleteOp({ location }: BaseOptions, [expression]: BaseTypeSpecifier[]) {
-        if (expression.isPointerType()) {
-            return [new FunctionTypeSpecifier([expression], VOID_TYPE)];
-        }
-        return new TypeException('Delete expression must evaluate to pointer type.', location);
-    }
-
-    private _deleteArrayOp(options: BaseOptions, parameters: BaseTypeSpecifier[]) {
-        return this._deleteOp(options, parameters);
-    }
-
-    // TODO
-    private _memberAccessOp(
-        { location, identifier }: MemberAccessOptions,
-        [expression]: BaseTypeSpecifier[]
-    ) {
-        if (!expression.isClassType()) {
-            return new TypeException(
-                `Illegal member access on non-class type '${expression.toString()}'.`,
-                location
-            );
-        }
-
-        // TODO: Lookup class member with identifier
-
-        return new TypeException(`Unimplemented operator.`, location);
-    }
-
-    // TODO
-    private _memberAccessDereferenceOp(
-        { location, identifier }: MemberAccessOptions,
-        [expression]: BaseTypeSpecifier[]
-    ) {
-        if (!expression.isPointerType()) {
-            return new TypeException(
-                `Illegal dereferenced member access on ` +
-                    `non-pointer type '${expression.toString()}'.`,
-                location
-            );
-        }
-
-        const classType = expression.createDereferencedType();
-        if (!classType.isClassType()) {
-            return new TypeException(
-                `Illegal dereferenced member access on ` +
-                    `primitive pointer type '${expression.toString()}'.`,
-                location
-            );
-        }
-
-        // TODO: Lookup class member with identifier
-
-        return new TypeException(`Unimplemented operator.`, location);
-    }
-
-    private _functionCallOp({ location }: BaseOptions, [fn, ...args]: BaseTypeSpecifier[]) {
-        if (fn.isFunctionType()) {
-            const fnType = fn as FunctionTypeSpecifier;
-            if (fnType.parameters.length !== args.length) {
-                return new TypeException(
-                    `Function of type '${fnType.toString()}' ` +
-                        `called with wrong number of arguments. ` +
-                        `Expected ${fnType.parameters.length} ` +
-                        `argument${fnType.parameters.length !== 1 ? 's' : ''} ` +
-                        `but function call has ${args.length} ` +
-                        `argument${args.length !== 1 ? 's' : ''}.`,
-                    location
-                );
-            }
-
-            if (
-                fnType.parameters.some((p, i) => !p.equals(args[i]) && !args[i].canImplicitCast(p))
-            ) {
-                return new TypeException(
-                    `Function of type '${fnType.toString()}' ` +
-                        `called with wrong argument types. ` +
-                        `Expected ${fnType.parameters
-                            .map((p) => `'${p.toString()}'`)
-                            .join(', ')} ` +
-                        `but function call was executed with ` +
-                        `${args.map((a) => `'${a.toString()}'`).join(', ')}.`,
-                    location
-                );
-            }
-
-            return [new FunctionTypeSpecifier([fn, ...args], fnType.returnType)];
-        }
-
-        // TODO
-        if (fn.isClassType()) {
-        }
-
-        return new TypeException(
-            `Illegal function call expression on non-callable type '${fn.toString()}'.`,
-            location
-        );
-    }
-
-    private _typecastOp({ typeSpecifier }: TypecastOptions, [expression]: BaseTypeSpecifier[]) {
-        return [new FunctionTypeSpecifier([expression], typeSpecifier)];
-    }
-
-    private _indexOp({ location }: BaseOptions, [expression, index]: BaseTypeSpecifier[]) {
-        if (expression.isPointerType() && !index.equals(INTEGER_TYPE)) {
-            return new TypeException(
-                `Index expression must evaluate to type ` +
-                    `'${INTEGER_TYPE.toString()}', instead got '${index.toString()}'.`,
-                location
-            );
-        } else if (expression.isPointerType()) {
-            return [
-                new FunctionTypeSpecifier([expression, index], expression.createDereferencedType())
-            ];
-        }
-        // NOTE: Overloaded index operator on class types
-        // will be implemented through a static table entry.
-        return [];
-    }
-
-    private _addressOfOp(_, [expression]: BaseTypeSpecifier[]) {
-        return [new FunctionTypeSpecifier([expression], expression.createPointerType())];
-    }
-
-    private _dereferenceOp({ location }: BaseOptions, [expression]: BaseTypeSpecifier[]) {
-        if (!expression.isPointerType()) {
-            return new TypeException(
-                `Dereference operator must be used on a pointer type only, ` +
-                    `instead got '${expression.toString()}'.`,
-                location
-            );
-        }
-        return [new FunctionTypeSpecifier([expression], expression.createDereferencedType())];
-    }
-
-    private _nullCoalescingOp({ location }: BaseOptions, [first]: BaseTypeSpecifier[]) {
-        if (!first.isPointerType()) {
-            return new TypeException(
-                `Null coalescing expression may only be applied to ` +
-                    `pointer types, instead got '${first.toString()}'.`,
-                location
-            );
-        }
-        return [new FunctionTypeSpecifier([first, first], first)];
-    }
-
-    private _ternaryOp(_, [condition, trueExp]: BaseTypeSpecifier[]) {
-        return [new FunctionTypeSpecifier([condition, trueExp, trueExp], trueExp)];
-    }
-
-    private _assignmentOp(_, [left]: BaseTypeSpecifier[]) {
-        if (left.isReferenceType())
-            return [new FunctionTypeSpecifier([left, left.createUnreferencedType()], left)];
-        return [new FunctionTypeSpecifier([left.createReferenceType(), left], left)];
-    }
-
+    // =============================== AST Visit ===============================
     private _visitFunctionDeclaration(decl: FunctionDeclaration) {
         this._currentTable = this._currentTable.lookup(decl.name).symbolTable;
         this._currentFunction = decl;
@@ -674,7 +344,7 @@ export class TypeChecker extends ASTValidator {
         return (
             this._typecheck(statement, 'condition', BOOLEAN_TYPE) &&
             this._statement(statement.ifBody) &&
-            this._statement(statement.elseBody)
+            (!statement.elseBody || this._statement(statement.elseBody))
         );
     }
 

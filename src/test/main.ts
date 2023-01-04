@@ -4,6 +4,7 @@ import { PRINT_DIAGNOSTICS } from '../lib/pipeline';
 import { SymbolTable } from '../lib/symbol-table';
 import { ASTNode } from '../lib/ast/ast-node';
 import { InstructionBlock } from '../lib/tac';
+import _ from 'lodash';
 
 main();
 

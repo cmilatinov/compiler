@@ -8,7 +8,7 @@ import {
     SymbolTableEntryType
 } from './symbol-table-entries';
 import { BaseException, SemanticException } from '../../lib/exceptions';
-import { FunctionTypeSpecifier, VOID_TYPE } from '../type/type-specifier';
+import { BaseTypeSpecifier, FunctionTypeSpecifier, VOID_TYPE } from '../type/type-specifier';
 import { FunctionDeclaration, VariableStatement } from '../ast/ast-types';
 
 export class SymbolTableGenerator extends ASTValidator {
@@ -39,11 +39,15 @@ export class SymbolTableGenerator extends ASTValidator {
         );
 
         let duplicate: SymbolTableEntry | undefined;
-        if ((duplicate = shadowedMembers.find((m) => m.type === 'data'))) {
+        if (
+            (duplicate = shadowedMembers.find(
+                (m) => m.type === SymbolTableEntryType.CLASS_VARIABLE
+            ))
+        ) {
             this.warning(`Shadowed data member '${duplicate.name}'.`, entry.location);
         }
 
-        if ((duplicate = shadowedMembers.find((m) => m.type === 'function'))) {
+        if ((duplicate = shadowedMembers.find((m) => m.type === SymbolTableEntryType.FUNCTION))) {
             this.warning(
                 `Shadowed function '${duplicate.name}: ` +
                     `${(duplicate as FunctionEntry).typeSpecifier.toString()}'.`,

@@ -1,36 +1,32 @@
 import { DiagnosticProducer } from '../pipeline';
+import { Address } from './address';
 
-export class CodeGeneratorASM extends DiagnosticProducer {
+export abstract class CodeGeneratorASM extends DiagnosticProducer {
     private _code: string = '';
 
     private _generateCode(code: string) {
         this._code += code;
     }
 
-    protected _line(code?: string) {
+    public line(code?: string) {
         this._generateCode(`${code || ''}\n`);
     }
 
-    protected _comment(comment: string) {
+    public comment(comment: string) {
         this._indent();
         this._generateCode(`; ${comment}\n`);
     }
 
-    protected _instructionLabelled(
-        label: string,
-        instruction: string,
-        dest?: string,
-        src?: string
-    ) {
+    public instructionLabelled(label: string, instruction: string, dest?: string, src?: string) {
         this._indent(label);
         this._instructionInner(instruction, dest, src);
-        this._line();
+        this.line();
     }
 
-    protected _instruction(instruction: string, dest?: string, src?: string) {
+    public instruction(instruction: string, dest?: string, src?: string) {
         this._indent();
         this._instructionInner(instruction, dest, src);
-        this._line();
+        this.line();
     }
 
     private _instructionInner(instruction: string, dest?: string, src?: string) {
@@ -46,4 +42,6 @@ export class CodeGeneratorASM extends DiagnosticProducer {
     public get code() {
         return this._code;
     }
+
+    public abstract asmAddress(address: Address): string;
 }

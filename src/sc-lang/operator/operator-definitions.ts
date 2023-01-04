@@ -1,20 +1,46 @@
 import { BaseTypeSpecifier, FunctionTypeSpecifier } from '../type/type-specifier';
 import { Operator } from './operators';
 import { BaseException } from '../../lib/exceptions';
+import { Address, CodeGeneratorASM } from '../../lib/code-generator';
 
-export type OperatorDefinition = FunctionTypeSpecifier;
+export interface FunctionArgument {
+    type: BaseTypeSpecifier;
+    address: Address;
+}
+
+export type OperatorImplementation = (
+    generator: CodeGeneratorASM,
+    returnValue: FunctionArgument,
+    ...args: FunctionArgument[]
+) => void;
+
+export interface OperatorDefinition {
+    readonly type: FunctionTypeSpecifier;
+    readonly implementation?: OperatorImplementation;
+}
+
+export class EmptyOperatorDefinition implements OperatorDefinition {
+    constructor(public readonly type: FunctionTypeSpecifier) {}
+}
+
+export class BasicOperatorDefinition implements OperatorDefinition {
+    constructor(
+        public readonly type: FunctionTypeSpecifier,
+        public readonly implemmentation: OperatorImplementation
+    ) {}
+}
 
 export type OperatorDefinitionRule = (
     options: any,
     typeList: BaseTypeSpecifier[]
-) => FunctionTypeSpecifier[] | BaseException;
+) => OperatorDefinition[] | BaseException;
 
 interface OperatorDefinitions {
     [key: string]: OperatorDefinition[];
 }
 
 interface OperatorDefinitionRules {
-    [key: string]: OperatorDefinitionRule;
+    [key: string]: OperatorDefinitionRule[];
 }
 
 export class OperatorDefinitionTable {
@@ -36,8 +62,8 @@ export class OperatorDefinitionTable {
         }
         const existingDef = this._opDefinitions[operator].find(
             (d) =>
-                d.hasArity(definition.parameters.length) &&
-                d.parameters.every((p, i) => p.equals(definition.parameters[i]))
+                d.type.hasArity(definition.type.parameters.length) &&
+                d.type.parameters.every((p, i) => p.equals(definition.type.parameters[i]))
         );
         if (existingDef) {
             return false;
@@ -51,8 +77,10 @@ export class OperatorDefinitionTable {
     }
 
     public addDefinitionRule(operator: Operator, rule: OperatorDefinitionRule) {
-        if (this._opDefinitionRules[operator]) return false;
-        this._opDefinitionRules[operator] = rule;
+        if (!this._opDefinitionRules[operator]) {
+            this._opDefinitionRules[operator] = [];
+        }
+        this._opDefinitionRules[operator].push(rule);
         return true;
     }
 
@@ -63,21 +91,22 @@ export class OperatorDefinitionTable {
     ) {
         const definitions = (this._opDefinitions[operator] || []).filter(
             (d) =>
-                d.parameters.length === typeList.length &&
-                (d.parameters.length === 1 || d.parameters.some((p, i) => p.equals(typeList[i])))
+                d.type.hasArity(typeList.length) &&
+                (d.type.hasArity(1) || d.type.parameters.some((p, i) => p.equals(typeList[i])))
         );
 
-        const ruleDefs = this._opDefinitionRules[operator]
-            ? this._opDefinitionRules[operator](options, typeList)
-            : [];
-        if (!(ruleDefs instanceof BaseException)) {
-            definitions.push(...ruleDefs.filter((f) => f.hasArity(typeList.length)));
+        const ruleDefs = (this._opDefinitionRules[operator] || []).reduce((acc, rule) => {
+            const result = rule(options, typeList);
+            if (Array.isArray(result)) return [...acc, ...result];
+            return [...acc, result];
+        }, []);
+        const ruleDefsFiltered = ruleDefs.filter((d) => !(d instanceof BaseException));
+        if (ruleDefsFiltered.length <= 0 && definitions.length <= 0) {
+            const exception = ruleDefs.find((d) => d instanceof BaseException);
+            if (exception) throw exception;
+            return [];
         }
 
-        if (definitions.length <= 0 && ruleDefs instanceof BaseException) {
-            throw ruleDefs;
-        }
-
-        return definitions;
+        return definitions.concat(ruleDefsFiltered.filter((d) => d.type.hasArity(typeList.length)));
     }
 }

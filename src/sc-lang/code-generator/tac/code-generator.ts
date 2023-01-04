@@ -1,5 +1,11 @@
 import { Set } from 'immutable';
-import { CodeGeneratorTAC, ConditionalJumpInstruction, InstructionBlock } from '../../../lib/tac';
+import {
+    CodeGeneratorTAC,
+    ConditionalJumpInstruction,
+    InstructionBlock,
+    InstructionTAC,
+    JumpInstruction
+} from '../../../lib/tac';
 import { PipelineStage } from '../../../lib/pipeline';
 import { SymbolTable } from '../../../lib/symbol-table';
 import { ASTNode } from '../../../lib/ast/ast-node';
@@ -53,7 +59,7 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
         ) as FunctionEntry;
         this._currentTable = entry.symbolTable;
         this._tempGen = new LabelGenerator('t', 0);
-        entry.instructionBlock = this._block(decl.name);
+        entry.instructionBlock = this._block(decl.name, true);
         this._function(decl.name);
         decl.body.forEach((s) => this._statement(s));
         this._endFunction(decl.name);
@@ -138,17 +144,26 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
 
         const ifBlock = this._block(undefined, false, false);
         this._statement(statement.ifBody);
-        const jmpElse = this._jump(null);
 
-        const elseBlock = this._block(undefined, false, false);
-        jmpIf.operands.jumpTarget = elseBlock;
-        this._statement(statement.elseBody);
+        let jmpElse: JumpInstruction = null;
+        let elseBlock: InstructionBlock = null;
+        if (statement.elseBody) {
+            jmpElse = this._jump(null);
+            elseBlock = this._block(undefined, false, false);
+            jmpIf.operands.jumpTarget = elseBlock;
+            this._statement(statement.elseBody);
+        }
 
         const transitionElseToNext = this._currentBlock.instructions.length != 0;
         const nextBlock = transitionElseToNext
             ? this._block(undefined, false, false)
             : this._currentBlock;
-        jmpElse.operands.jumpTarget = nextBlock;
+
+        if (jmpElse) {
+            jmpElse.operands.jumpTarget = nextBlock;
+        } else {
+            jmpIf.operands.jumpTarget = nextBlock;
+        }
 
         this._setupIfElseControl(fromBlock, ifBlock, elseBlock, nextBlock, transitionElseToNext);
     }
@@ -311,7 +326,7 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
             default: {
                 this.error(
                     `Invalid arity for operator '${expr.operator}'. ` +
-                        `Expected 1 or 2, instead got '${expr.operands.length}'.`
+                        `Expected 1 or 2, instead got ${expr.operands.length}.`
                 );
                 return null;
             }
@@ -429,21 +444,27 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
     private _setupIfElseControl(
         fromBlock: InstructionBlock,
         ifBlock: InstructionBlock,
-        elseBlock: InstructionBlock,
+        elseBlock: InstructionBlock | null,
         nextBlock: InstructionBlock,
         transitionElseToNext: boolean = true
     ) {
         // Control Flow Graph
-        fromBlock.control.next.push(ifBlock, elseBlock);
+        fromBlock.control.next.push(ifBlock);
         ifBlock.control.prev.push(fromBlock);
-        elseBlock.control.prev.push(fromBlock);
 
         ifBlock.control.next.push(nextBlock);
         nextBlock.control.prev.push(ifBlock);
 
-        if (transitionElseToNext) {
-            elseBlock.control.next.push(nextBlock);
-            nextBlock.control.prev.push(elseBlock);
+        if (elseBlock) {
+            fromBlock.control.next.push(elseBlock);
+            elseBlock.control.prev.push(fromBlock);
+            if (transitionElseToNext) {
+                elseBlock.control.next.push(nextBlock);
+                nextBlock.control.prev.push(elseBlock);
+            }
+        } else {
+            fromBlock.control.next.push(nextBlock);
+            nextBlock.control.prev.push(fromBlock);
         }
     }
 }

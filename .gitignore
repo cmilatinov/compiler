@@ -193,3 +193,6 @@ dist
 **.exe
 **.out*
 **.moon
+
+.vscode/
+.fleet/

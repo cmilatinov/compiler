@@ -6,7 +6,7 @@ import { GrammarFactory } from '../lib/grammar';
 import { CodeGeneratorSCLangTAC } from './code-generator/tac/code-generator';
 import * as fs from 'fs';
 import { LRParseTable } from '../lib/grammar/parsers/lr-parse-table';
-import { CodeGeneratorSCLangX64New } from './code-generator/x64/code-generator-new';
+import { CodeGeneratorSCLangX64 } from './code-generator/x64/code-generator';
 
 export class SCLangPipeline extends ParsingPipeline {
     constructor() {
@@ -20,7 +20,7 @@ export class SCLangPipeline extends ParsingPipeline {
             new SymbolTableGenerator(),
             new TypeChecker(),
             new CodeGeneratorSCLangTAC(),
-            new CodeGeneratorSCLangX64New()
+            new CodeGeneratorSCLangX64()
         );
     }
 }

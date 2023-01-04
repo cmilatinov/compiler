@@ -8,9 +8,6 @@ export enum InstructionTAC {
     PARAMETER,
     PROCEDURE_CALL,
     RETURN,
-    DECLARE,
-    ALLOCATE,
-    FREE,
     FUNCTION,
     END_FUNCTION
 }
@@ -27,6 +24,10 @@ export interface BaseInstructionTAC {
 export function isVariable(name: string) {
     if (!name || typeof name !== 'string') return false;
     return /^[_a-zA-Z]/.test(name);
+}
+
+export function toStringLiveSets(sets: { in: Set<string>; out: Set<string> }) {
+    return `in { ${sets.in.join(', ')} }`.padEnd(25) + ` out { ${sets.out.join(', ')} }`;
 }
 
 export class AssignmentInstruction implements BaseInstructionTAC {
@@ -223,7 +224,7 @@ export class FunctionInstruction implements BaseInstructionTAC {
     constructor(public operands: { label: string }) {}
 
     public toString() {
-        return `function ${this.operands.label}`;
+        return `fn ${this.operands.label}`;
     }
 
     public getVariablesRead() {
@@ -242,7 +243,7 @@ export class EndFunctionInstruction implements BaseInstructionTAC {
     constructor(public operands: { label: string }) {}
 
     public toString() {
-        return `endfunction ${this.operands.label}`;
+        return `endfn ${this.operands.label}`;
     }
 
     public getVariablesRead() {

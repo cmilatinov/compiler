@@ -18,10 +18,17 @@ import { ASTNode } from '../../../lib/ast/ast-node';
 import { Address, AddressType } from '../../../lib/code-generator/address';
 import {
     FunctionEntry,
+    LocalVariableEntry,
     SymbolTableEntryType,
     VariableClass
 } from '../../symbol-table/symbol-table-entries';
-import { Register, REGISTER_SIZE, RegisterAllocatorSCLang } from './register';
+import {
+    Register,
+    REGISTER_SIZE,
+    RegisterAllocatorSCLang,
+    INTEGER_PARAMETER_REGISTERS,
+    FLOATING_PARAMETER_REGISTERS
+} from './register';
 import {
     BaseTypeSpecifier,
     BOOLEAN_TYPE,
@@ -33,6 +40,7 @@ import { Operator } from '../../operator/operators';
 import { OperatorDefinitionTable } from '../../operator/operator-definitions';
 import { BooleanToken, FloatToken, IntegerToken } from '../../../lib/tokenizer';
 import { OperatorImplementationsX64 } from './operator-implementations';
+import _, { add } from 'lodash';
 
 interface AddressMap {
     [key: string]: Address[];
@@ -75,14 +83,17 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
             arr.push(address);
         }
         arr.sort((a, b) => a.type - b.type);
+        if (address.type === AddressType.REGISTER) {
+            this._context.registerAllocator.set(identifier, address.register);
+        }
     }
 
     private _freeAddress(identifier: string, address: Address) {
+        const addrs = this._context.addressMap[identifier];
+        addrs.splice(addrs.indexOf(address), 1);
         if (address.type === AddressType.REGISTER) {
             this._context.registerAllocator.free(address.register);
         }
-        const addrs = this._context.addressMap[identifier];
-        addrs.splice(addrs.indexOf(address), 1);
     }
 
     private _allocateStack(type: BaseTypeSpecifier): Address {
@@ -105,10 +116,6 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
             register,
             size
         };
-    }
-
-    private _allocate(): Address {
-        return null;
     }
 
     private _load(identifier: string): Address {
@@ -203,6 +210,7 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
             SymbolTableEntryType.FUNCTION
         ) as FunctionEntry;
         this._initContext(entry.symbolTable);
+        this._localVarList(entry);
         this._paramList(entry);
         this.instructionLabelled(entry.name, InstructionX64.ENDBR64);
         this._stackFrameInit();
@@ -223,31 +231,78 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
         return 0;
     }
 
+    private _findRegister(registerPool: Register[]) {
+        while (registerPool.length > 0) {
+            const register = registerPool.shift();
+            const identifier = this._context.registerAllocator.getAllocatedIdentifier(register);
+            if (!identifier) return register;
+        }
+        return null;
+    }
+
+    private _localVarList(entry: FunctionEntry) {
+        this._context.stackOffset = 0;
+        entry.symbolTable
+            .getEntries()
+            .filter((e) => e.type === SymbolTableEntryType.LOCAL_VARIABLE)
+            .forEach((e) => {
+                const localVar = e as LocalVariableEntry;
+                const size = this._typeSize(localVar.typeSpecifier);
+                this._assignAddress(e.name, {
+                    type: AddressType.STACK,
+                    size,
+                    stackOffset: (this._context.stackOffset -= size)
+                });
+            });
+    }
+
     private _paramList(entry: FunctionEntry) {
-        let integerParamCounter = 0;
-        let floatingParamCounter = 0;
-        // RBP is last on stack
-        this._context.stackOffset = -REGISTER_SIZE;
-
+        // https://www.ired.team/miscellaneous-reversing-forensics/windows-kernel-internals/linux-x64-calling-convention-stack-frame
         // https://refspecs.linuxfoundation.org/elf/x86_64-abi-0.99.pdf
-        // Stack Layout:
-        // arg ...
-        // arg 8
-        // arg 7
-
+        let stackOffsetRegParams = -Math.ceil(Math.abs(this._context.stackOffset) / 16) * 16;
+        let stackOffsetMemParams = 16;
+        const registers = {
+            [VariableClass.INTEGER]: [...INTEGER_PARAMETER_REGISTERS],
+            [VariableClass.FLOATING]: [...FLOATING_PARAMETER_REGISTERS]
+        };
         entry.parameters.forEach((p) => {
-            let address: Address;
             const varClass = p.typeSpecifier.getVariableClass();
-            if ([VariableClass.INTEGER, VariableClass.FLOATING].includes(varClass)) {
-                address = this._allocateRegister(p.name, p.typeSpecifier);
-
-                if (varClass === VariableClass.INTEGER) integerParamCounter++;
-                else floatingParamCounter++;
-            } else {
-                address = this._allocateStack(p.typeSpecifier);
+            const size = this._typeSize(p.typeSpecifier);
+            switch (varClass) {
+                case VariableClass.INTEGER:
+                case VariableClass.FLOATING: {
+                    const register = this._findRegister(registers[varClass]);
+                    if (register) {
+                        this._assignAddress(p.name, {
+                            type: AddressType.REGISTER,
+                            size,
+                            register
+                        });
+                        this._assignAddress(p.name, {
+                            type: AddressType.STACK,
+                            size,
+                            stackOffset: (stackOffsetRegParams -= size)
+                        });
+                    } else {
+                        this._assignAddress(p.name, {
+                            type: AddressType.STACK,
+                            size,
+                            stackOffset: stackOffsetMemParams
+                        });
+                        stackOffsetMemParams += size;
+                    }
+                    break;
+                }
+                case VariableClass.MEMORY: {
+                    this._assignAddress(p.name, {
+                        type: AddressType.STACK,
+                        size,
+                        stackOffset: stackOffsetMemParams
+                    });
+                    stackOffsetMemParams += size;
+                    break;
+                }
             }
-            this._assignAddress(p.name, address);
-            // TODO: Handle reference types as absolute addresses
         });
     }
 

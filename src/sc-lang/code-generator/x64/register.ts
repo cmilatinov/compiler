@@ -108,6 +108,10 @@ export class RegisterAllocatorSCLang {
         return register || null;
     }
 
+    set(identifier: string, register: string) {
+        this._registerMap[register] = identifier;
+    }
+
     free(register: string) {
         delete this._registerMap[register];
     }

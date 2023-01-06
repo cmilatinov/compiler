@@ -51,8 +51,8 @@ export class AssignmentInstruction implements BaseInstructionTAC {
 
     public getVariablesRead() {
         const vars = [];
-        if (isVariable(this.operands.left)) vars.push(this.operands.left);
-        if (isVariable(this.operands.right)) vars.push(this.operands.right);
+        if (this.operands.left) vars.push(this.operands.left);
+        if (this.operands.right) vars.push(this.operands.right);
         return Set<string>(vars);
     }
 
@@ -77,7 +77,7 @@ export class CopyInstruction implements BaseInstructionTAC {
     }
 
     public getVariablesRead() {
-        return isVariable(this.operands.src) ? Set<string>([this.operands.src]) : Set<string>();
+        return this.operands.src ? Set<string>([this.operands.src]) : Set<string>();
     }
 
     public getVariablesWritten() {
@@ -107,8 +107,8 @@ export class ConditionalJumpInstruction implements BaseInstructionTAC {
 
     public getVariablesRead() {
         const vars = [];
-        if (isVariable(this.operands.left)) vars.push(this.operands.left);
-        if (isVariable(this.operands.right)) vars.push(this.operands.right);
+        if (this.operands.left) vars.push(this.operands.left);
+        if (this.operands.right) vars.push(this.operands.right);
         return Set<string>(vars);
     }
 
@@ -155,9 +155,7 @@ export class ParameterInstruction implements BaseInstructionTAC {
     }
 
     public getVariablesRead() {
-        return isVariable(this.operands.parameter)
-            ? Set<string>([this.operands.parameter])
-            : Set<string>();
+        return this.operands.parameter ? Set<string>([this.operands.parameter]) : Set<string>();
     }
 
     public getVariablesWritten() {
@@ -209,7 +207,7 @@ export class ReturnInstruction implements BaseInstructionTAC {
     }
 
     public getVariablesRead() {
-        return isVariable(this.operands.value) ? Set<string>([this.operands.value]) : Set<string>();
+        return this.operands.value ? Set<string>([this.operands.value]) : Set<string>();
     }
 
     public getVariablesWritten() {

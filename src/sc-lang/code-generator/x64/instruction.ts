@@ -1,5 +1,4 @@
 export enum InstructionX64 {
-    ENDBR64 = 'endbr64',
     PUSH = 'push',
     POP = 'pop',
     MOV = 'mov',
@@ -9,8 +8,8 @@ export enum InstructionX64 {
     XOR = 'xor',
     ADD = 'add',
     SUB = 'sub',
-    IMULQ = 'imulq',
-    IDIVQ = 'idivq',
+    IMUL = 'imul',
+    IDIV = 'idiv',
     INC = 'inc',
     DEC = 'dec',
     NEG = 'neg',

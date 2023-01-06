@@ -1,8 +1,9 @@
-import { CodeGeneratorASM } from '../../../lib/code-generator';
+import { Address, AddressType, CodeGeneratorASM } from '../../../lib/code-generator';
 import { PipelineStage } from '../../../lib/pipeline';
 import { SymbolTable } from '../../../lib/symbol-table';
 import {
     AssignmentInstruction,
+    BaseInstructionTAC,
     ConditionalJumpInstruction,
     CopyInstruction,
     EndFunctionInstruction,
@@ -15,7 +16,6 @@ import {
     ReturnInstruction
 } from '../../../lib/tac';
 import { ASTNode } from '../../../lib/ast/ast-node';
-import { Address, AddressType } from '../../../lib/code-generator/address';
 import {
     FunctionEntry,
     LocalVariableEntry,
@@ -23,11 +23,12 @@ import {
     VariableClass
 } from '../../symbol-table/symbol-table-entries';
 import {
-    Register,
-    REGISTER_SIZE,
-    RegisterAllocatorSCLang,
+    BaseRegister,
+    baseRegister,
+    FLOATING_PARAMETER_REGISTERS,
     INTEGER_PARAMETER_REGISTERS,
-    FLOATING_PARAMETER_REGISTERS
+    Register,
+    RegisterAllocatorSCLang
 } from './register';
 import {
     BaseTypeSpecifier,
@@ -37,10 +38,12 @@ import {
 } from '../../type/type-specifier';
 import { InstructionX64 } from './instruction';
 import { Operator } from '../../operator/operators';
-import { OperatorDefinitionTable } from '../../operator/operator-definitions';
+import { FunctionArgument, OperatorDefinitionTable } from '../../operator/operator-definitions';
 import { BooleanToken, FloatToken, IntegerToken } from '../../../lib/tokenizer';
 import { OperatorImplementationsX64 } from './operator-implementations';
-import _, { add } from 'lodash';
+import _ from 'lodash';
+import { RegisterAddressX64, StackAddressX64 } from './address';
+import { OrderedSet, Set } from 'immutable';
 
 interface AddressMap {
     [key: string]: Address[];
@@ -50,6 +53,7 @@ interface CodeGenerationContext {
     symbolTable: SymbolTable;
     readonly addressMap: AddressMap;
     readonly registerAllocator: RegisterAllocatorSCLang;
+    instruction?: BaseInstructionTAC;
     stackOffset?: number;
 }
 
@@ -75,6 +79,7 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
 
     // ================ Address Allocation ================
     private _assignAddress(identifier: string, address: Address) {
+        // noinspection JSMismatchedCollectionQueryUpdate
         let arr: Address[];
         if (!this._context.addressMap[identifier]) {
             arr = this._context.addressMap[identifier] = [address];
@@ -84,53 +89,119 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
         }
         arr.sort((a, b) => a.type - b.type);
         if (address.type === AddressType.REGISTER) {
-            this._context.registerAllocator.set(identifier, address.register);
+            this._context.registerAllocator.set(
+                identifier,
+                baseRegister(address.register as Register)
+            );
         }
     }
 
     private _freeAddress(identifier: string, address: Address) {
-        const addrs = this._context.addressMap[identifier];
-        addrs.splice(addrs.indexOf(address), 1);
-        if (address.type === AddressType.REGISTER) {
-            this._context.registerAllocator.free(address.register);
+        const addresses = this._context.addressMap[identifier] || [];
+        const index = addresses.findIndex((a) => a.equals(address));
+        if (index >= 0) {
+            addresses.splice(index, 1);
+        }
+        if (address?.type === AddressType.REGISTER) {
+            this._context.registerAllocator.free(baseRegister(address.register as Register));
         }
     }
 
-    private _allocateStack(type: BaseTypeSpecifier): Address {
-        const size = this._typeSize(type);
-        return {
-            type: AddressType.STACK,
-            stackOffset: (this._context.stackOffset -= size),
-            size
-        };
-    }
-
-    private _allocateRegister(identifier: string, type: BaseTypeSpecifier): Address {
-        const size = this._typeSize(type);
-        const register = this._context.registerAllocator.allocate(identifier, type);
-        if (!register) {
-            // TODO: Spill another temporary to memory
+    private _freeRegister(register: BaseRegister, zero: boolean = false) {
+        const identifier = this._context.registerAllocator.getAllocatedIdentifier(register);
+        if (identifier) {
+            const oldAddr = (this._context.addressMap[identifier] || []).find(
+                (a) =>
+                    a.type === AddressType.REGISTER &&
+                    baseRegister(a.register as Register) === register
+            );
+            if (oldAddr) {
+                this._freeAddress(identifier, oldAddr);
+                const entry = this._context.symbolTable.lookup(identifier);
+                const isTemp = entry?.type === SymbolTableEntryType.TEMPORARY;
+                const isLive = this._context.instruction.live.in.contains(identifier);
+                if (isLive) {
+                    if (isTemp) {
+                        const newAddr = this._load(identifier, [], [register]);
+                        this.mov(newAddr, oldAddr);
+                    } else {
+                        this._store(identifier);
+                    }
+                }
+            }
         }
-        return {
-            type: AddressType.REGISTER,
-            register,
-            size
-        };
+        if (zero) {
+            const reg = RegisterAddressX64.createFromBase(register, 8);
+            this.instruction(InstructionX64.XOR, reg.toString(), reg.toString());
+        }
     }
 
-    private _load(identifier: string): Address {
+    private _load(
+        identifier: string,
+        preferred: BaseRegister[] = [],
+        excluded: BaseRegister[] = [],
+        isReturnValue: boolean = false
+    ): Address {
+        // Identifier is already in a register
+        let addr = this._address(identifier);
+        if (addr && addr.type === AddressType.REGISTER) return addr;
+
+        // Identifier info
+        const isCompileTimeConstant = this._isConstant(identifier);
         const type = this._type(identifier);
-        const addr = this._address(identifier);
-        if (!addr) {
-        } else if (addr.type === AddressType.STACK) {
-            this._assignAddress(identifier, this._allocateRegister(identifier, type));
+        const size = this._typeSize(type);
+
+        // Find currently allocated dead value whose register we can use
+        let register = OrderedSet<BaseRegister>(
+            preferred.concat(this._context.registerAllocator.getRegisterBank(type))
+        )
+            .asMutable()
+            .subtract(Set<BaseRegister>(excluded))
+            .find((r) => {
+                const id = this._context.registerAllocator.getAllocatedIdentifier(r);
+                if (!id) return true;
+                const liveSets = this._context.instruction.live;
+                const liveSet = isReturnValue ? liveSets.out : liveSets.in;
+                return !id || !liveSet.contains(id);
+            });
+        if (register) {
+            const otherIdentifier =
+                this._context.registerAllocator.getAllocatedIdentifier(register);
+            this._freeAddress(otherIdentifier, this._store(otherIdentifier));
+            const newAddr = RegisterAddressX64.createFromBase(register, size);
+            this._assignAddress(identifier, newAddr);
+            if (isCompileTimeConstant) {
+                this.instruction(InstructionX64.MOV, newAddr.register, identifier);
+            } else if (addr) {
+                this.mov(newAddr, addr);
+            }
+            return newAddr;
         }
-        return addr;
+
+        // Should never hit here
+        return null;
+    }
+
+    private _store(identifier: string): Address {
+        if (!identifier) return null;
+        const addresses = _.partition(
+            this._context.addressMap[identifier],
+            (a) => a.type === AddressType.REGISTER && a.register === identifier
+        );
+        const registerAddr = addresses[0][0];
+        const memoryAddr = addresses[1][0];
+        if (memoryAddr && registerAddr) {
+            this.mov(memoryAddr, registerAddr);
+            return registerAddr;
+        }
+        return null;
     }
 
     // ================ Instruction Processors ================
     private _block(block: InstructionBlock) {
         block.instructions.forEach((i) => {
+            this._context.instruction = i;
+            this._instructionComment(i);
             switch (i.type) {
                 case InstructionTAC.ASSIGNMENT:
                     return this._assign(i as AssignmentInstruction);
@@ -155,41 +226,53 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
     }
 
     private _assign(instruction: AssignmentInstruction) {
-        const rightType = this._type(instruction.operands.right);
-        const returnValue = {
-            type: this._type(instruction.operands.assignmentTarget),
-            address: this._address(instruction.operands.assignmentTarget)
-        };
+        const operator = instruction.operands.operator as Operator;
+        const isMulOp = [Operator.MULTIPLICATION, Operator.DIVISION].includes(operator);
+        if (isMulOp) {
+            this._freeRegister(BaseRegister.A, true);
+            this._freeRegister(BaseRegister.D, operator === Operator.DIVISION);
+        }
+
+        const operands = [];
+        const types = [];
+
         if (instruction.operands.left) {
-            const leftType = this._type(instruction.operands.right);
-            const [def] = this._opTable.getCandidateDefinitions(
-                instruction.operands.operator as Operator,
-                {},
-                [leftType, rightType]
-            );
-            if (def?.implementation)
-                def.implementation(
-                    this,
-                    returnValue,
-                    { type: leftType, address: this._address(instruction.operands.left) },
-                    { type: rightType, address: this._address(instruction.operands.right) }
-                );
-        } else {
-            const [def] = this._opTable.getCandidateDefinitions(
-                instruction.operands.operator as Operator,
-                {},
-                [rightType]
-            );
-            if (def?.implementation)
-                def.implementation(this, returnValue, {
-                    type: rightType,
-                    address: this._address(instruction.operands.right)
-                });
+            const leftType = this._type(instruction.operands.left);
+            const leftAddr = this._load(instruction.operands.left, isMulOp ? [BaseRegister.A] : []);
+            types.push(leftType);
+            operands.push({ type: leftType, address: leftAddr });
+        }
+
+        const rightType = this._type(instruction.operands.right);
+        const rightAddr = this._load(instruction.operands.right);
+        types.push(rightType);
+        operands.push({ type: rightType, address: rightAddr });
+
+        const returnValue: FunctionArgument = {
+            type: this._type(instruction.operands.assignmentTarget),
+            address: this._load(
+                instruction.operands.assignmentTarget,
+                isMulOp ? [BaseRegister.A] : [],
+                [],
+                true
+            )
+        };
+
+        const [def] = this._opTable.getCandidateDefinitions(
+            instruction.operands.operator as Operator,
+            {},
+            types
+        );
+        if (def?.implementation) {
+            def.implementation(this, returnValue, ...operands);
         }
     }
 
     private _copy(instruction: CopyInstruction) {
-        this._mov(instruction.operands.dest, instruction.operands.src);
+        const dest = this._address(instruction.operands.dest);
+        const src = this._load(instruction.operands.src);
+        this.mov(dest, src);
+        this._store(instruction.operands.dest);
     }
 
     private _condJump(instruction: ConditionalJumpInstruction) {}
@@ -202,7 +285,24 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
 
     private _call(instruction: ProcedureCallInstruction) {}
 
-    private _return(instruction: ReturnInstruction) {}
+    private _return(instruction: ReturnInstruction) {
+        const type = this._type(instruction.operands.value);
+
+        let addr: Address;
+        const varClass = type.getVariableClass();
+        switch (varClass) {
+            case VariableClass.INTEGER:
+                this._freeRegister(BaseRegister.A);
+                addr = this._load(instruction.operands.value, [BaseRegister.A]);
+                break;
+            case VariableClass.FLOATING:
+                this._freeRegister(BaseRegister.MM0);
+                addr = this._load(instruction.operands.value, [BaseRegister.MM0]);
+                break;
+        }
+
+        this.mov(RegisterAddressX64.createFromRegister(addr.register as Register), addr);
+    }
 
     private _function(instruction: FunctionInstruction) {
         const entry = this._context.symbolTable.lookup(
@@ -210,28 +310,41 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
             SymbolTableEntryType.FUNCTION
         ) as FunctionEntry;
         this._initContext(entry.symbolTable);
+        this._stackFrameInit(entry.name);
         this._localVarList(entry);
         this._paramList(entry);
-        this.instructionLabelled(entry.name, InstructionX64.ENDBR64);
-        this._stackFrameInit();
     }
 
     private _endFunction(instruction: EndFunctionInstruction) {
         this._stackFrameEnd();
         this.instruction(InstructionX64.RET);
+        this.line();
         this._context.symbolTable = this._context.symbolTable.getParentTable() || this._symbolTable;
     }
 
     // ================ Helper Functions ================
+    private _instructionComment(instruction: BaseInstructionTAC) {
+        this.line();
+        this.comment(instruction.toString());
+        const entries = Object.entries(this._context.registerAllocator['_registerMap']);
+        if (entries.length > 0) {
+            this.comment(`registers: [ ${entries.map(([k, v]) => `${k} = ${v}`).join(', ')} ]`);
+        }
+    }
+
+    private _isConstant(identifier: string) {
+        return /^[0-9]/.test(identifier);
+    }
+
     private _typeSize(type: BaseTypeSpecifier) {
         if (type.getVariableClass() !== VariableClass.MEMORY) {
-            return REGISTER_SIZE;
+            return 4;
         }
         // TODO: Lookup symbol table for class types
         return 0;
     }
 
-    private _findRegister(registerPool: Register[]) {
+    private _findRegister(registerPool: BaseRegister[]) {
         while (registerPool.length > 0) {
             const register = registerPool.shift();
             const identifier = this._context.registerAllocator.getAllocatedIdentifier(register);
@@ -248,11 +361,10 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
             .forEach((e) => {
                 const localVar = e as LocalVariableEntry;
                 const size = this._typeSize(localVar.typeSpecifier);
-                this._assignAddress(e.name, {
-                    type: AddressType.STACK,
-                    size,
-                    stackOffset: (this._context.stackOffset -= size)
-                });
+                this._assignAddress(
+                    e.name,
+                    new StackAddressX64((this._context.stackOffset -= size), size)
+                );
             });
     }
 
@@ -273,32 +385,22 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
                 case VariableClass.FLOATING: {
                     const register = this._findRegister(registers[varClass]);
                     if (register) {
-                        this._assignAddress(p.name, {
-                            type: AddressType.REGISTER,
-                            size,
-                            register
-                        });
-                        this._assignAddress(p.name, {
-                            type: AddressType.STACK,
-                            size,
-                            stackOffset: (stackOffsetRegParams -= size)
-                        });
+                        const registerAddr = RegisterAddressX64.createFromBase(register, size);
+                        const stackAddr = new StackAddressX64((stackOffsetRegParams -= size), size);
+                        this._assignAddress(p.name, registerAddr);
+                        this._assignAddress(p.name, stackAddr);
+                        this.mov(stackAddr, registerAddr);
                     } else {
-                        this._assignAddress(p.name, {
-                            type: AddressType.STACK,
-                            size,
-                            stackOffset: stackOffsetMemParams
-                        });
+                        this._assignAddress(
+                            p.name,
+                            new StackAddressX64(stackOffsetMemParams, size)
+                        );
                         stackOffsetMemParams += size;
                     }
                     break;
                 }
                 case VariableClass.MEMORY: {
-                    this._assignAddress(p.name, {
-                        type: AddressType.STACK,
-                        size,
-                        stackOffset: stackOffsetMemParams
-                    });
+                    this._assignAddress(p.name, new StackAddressX64(stackOffsetMemParams, size));
                     stackOffsetMemParams += size;
                     break;
                 }
@@ -306,8 +408,8 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
         });
     }
 
-    private _stackFrameInit() {
-        this.instruction(InstructionX64.PUSH, Register.RBP);
+    private _stackFrameInit(label: string) {
+        this.instructionLabelled(label, InstructionX64.PUSH, Register.RBP);
         this.instruction(InstructionX64.MOV, Register.RBP, Register.RSP);
     }
 
@@ -316,9 +418,8 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
     }
 
     private _address(variable: string): Address {
-        const addrs = [...(this._context.addressMap[variable] || [])];
-        addrs.sort((a, b) => a.type - b.type);
-        return addrs[0] || null;
+        const addresses = this._context.addressMap[variable] || [];
+        return addresses[0] || null;
     }
 
     private _type(variable: string): BaseTypeSpecifier {
@@ -337,65 +438,12 @@ export class CodeGeneratorSCLangX64 extends CodeGeneratorASM implements Pipeline
     }
 
     // ================ Assembly Instructions ================
-    private _asmSize(size: number) {
-        switch (size) {
-            case 1:
-                return 'byte';
-            case 2:
-                return 'word';
-            case 4:
-                return 'dword';
-            case 8:
-                return 'qword';
-            default:
-                this.error(`Invalid ASM size ${size}!`);
-                return 'invalid';
-        }
-    }
-
-    private _asmPtr(size: number) {
-        return `${this._asmSize(size)} ptr`;
-    }
-
-    private _asmOffset(offset: number) {
-        const sign = offset >= 0 ? '+' : '-';
-        return ` ${sign} ${Math.abs(offset)}`;
-    }
-
-    private _asmStackAddr(address: Address) {
-        return `${this._asmPtr(address.size)} [${Register.RBP}${this._asmOffset(
-            address.stackOffset
-        )}]`;
-    }
-
-    private _asmMemoryAddr(address: Address) {
-        return `${this._asmPtr(address.size)} [${address.register}]`;
-    }
-
-    private _asmRegisterAddr(address: Address) {
-        return address.register;
-    }
-
-    public asmAddress(address: Address) {
-        switch (address.type) {
-            case AddressType.STACK:
-                return this._asmStackAddr(address);
-            case AddressType.REGISTER:
-                return this._asmRegisterAddr(address);
-            case AddressType.MEMORY:
-                return this._asmMemoryAddr(address);
-            default:
-                this.error(`Invalid address type '${address.type}'!`);
-                return '';
-        }
-    }
-
-    private _mov(dest: string, src: string) {
-        const destAddr = this._address(dest);
-        const srcAddr = this._address(src);
-        if (destAddr?.size !== srcAddr?.size) {
-            this.error(`Incompatible address sizes (${destAddr.size} != ${srcAddr.size})!`);
-            return;
-        }
+    public mov(dest: Address, src: Address) {
+        // TODO: Handle:
+        //  - memory to memory moves
+        //  - multi address moves
+        //  - floating moves
+        if (dest.equals(src) || dest.size !== src.size) return;
+        this.instruction(InstructionX64.MOV, dest.toString(), src.toString());
     }
 }

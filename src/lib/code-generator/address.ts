@@ -11,6 +11,8 @@ export interface Address {
     size: number;
     register?: string;
     stackOffset?: number;
+    equals(addr: Address): boolean;
+    toString(): string;
 }
 
 export function addressEquals(first: Address, second: Address) {

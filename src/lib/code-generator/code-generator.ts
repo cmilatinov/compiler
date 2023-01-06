@@ -39,9 +39,9 @@ export abstract class CodeGeneratorASM extends DiagnosticProducer {
         this._generateCode((label ? `${label}:` : '').padEnd(15));
     }
 
+    public abstract mov(dest: Address, src: Address);
+
     public get code() {
         return this._code;
     }
-
-    public abstract asmAddress(address: Address): string;
 }

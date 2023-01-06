@@ -26,7 +26,7 @@ export class EmptyOperatorDefinition implements OperatorDefinition {
 export class BasicOperatorDefinition implements OperatorDefinition {
     constructor(
         public readonly type: FunctionTypeSpecifier,
-        public readonly implemmentation: OperatorImplementation
+        public readonly implementation: OperatorImplementation
     ) {}
 }
 

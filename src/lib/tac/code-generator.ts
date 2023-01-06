@@ -7,7 +7,6 @@ import {
     EndFunctionInstruction,
     FunctionInstruction,
     InstructionBlock,
-    isVariable,
     JumpInstruction,
     ParameterInstruction,
     ProcedureCallInstruction,
@@ -97,10 +96,6 @@ export class CodeGeneratorTAC extends DiagnosticProducer {
 
     protected _endFunction(label: string) {
         return this._instruction(EndFunctionInstruction, { label });
-    }
-
-    protected _isVariable(name?: string) {
-        return isVariable(name);
     }
 
     protected _isLoopingBlock(block: InstructionBlock) {

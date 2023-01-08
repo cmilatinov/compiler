@@ -2,6 +2,8 @@ export enum InstructionX64 {
     PUSH = 'push',
     POP = 'pop',
     MOV = 'mov',
+    MOVSX = 'movsx',
+    MOVZX = 'movzx',
     NOT = 'not',
     AND = 'and',
     OR = 'or',
@@ -16,11 +18,14 @@ export enum InstructionX64 {
     CMP = 'cmp',
     RET = 'ret',
     JMP = 'jmp',
+    SAL = 'sal',
     SHL = 'shl',
+    SAR = 'sar',
     SHR = 'shr',
 
     SETE = 'sete',
     SETNE = 'setne',
+    TEST = 'test',
     ADDSD = 'addsd',
     CVTSI2SD = 'cvtsi2sd'
 }

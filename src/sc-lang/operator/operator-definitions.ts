@@ -2,10 +2,12 @@ import { BaseTypeSpecifier, FunctionTypeSpecifier } from '../type/type-specifier
 import { Operator } from './operators';
 import { BaseException } from '../../lib/exceptions';
 import { Address, CodeGeneratorASM } from '../../lib/code-generator';
+import { type } from 'os';
 
 export interface FunctionArgument {
     type: BaseTypeSpecifier;
     address: Address;
+    identifier: string;
 }
 
 export type OperatorImplementation = (
@@ -87,12 +89,16 @@ export class OperatorDefinitionTable {
     public getCandidateDefinitions(
         operator: Operator,
         options: any,
-        typeList: BaseTypeSpecifier[]
+        typeList: BaseTypeSpecifier[],
+        exact: boolean = false
     ) {
         const definitions = (this._opDefinitions[operator] || []).filter(
             (d) =>
-                d.type.hasArity(typeList.length) &&
-                (d.type.hasArity(1) || d.type.parameters.some((p, i) => p.equals(typeList[i])))
+                (d.type.hasArity(typeList.length) &&
+                    !exact &&
+                    (d.type.hasArity(1) ||
+                        d.type.parameters.some((p, i) => p.equals(typeList[i])))) ||
+                (exact && d.type.parameters.every((p, i) => p.equals(typeList[i])))
         );
 
         const ruleDefs = (this._opDefinitionRules[operator] || []).reduce((acc, rule) => {

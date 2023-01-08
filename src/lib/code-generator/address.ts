@@ -3,7 +3,8 @@ import _ from 'lodash';
 export enum AddressType {
     REGISTER = 0,
     STACK = 1,
-    MEMORY = 2
+    MEMORY = 2,
+    IMMEDIATE = 3
 }
 
 export interface Address {

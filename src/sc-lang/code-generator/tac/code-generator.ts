@@ -198,17 +198,7 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
     }
 
     private _literal(expr: LiteralExpression) {
-        switch (expr.type) {
-            case LiteralType.INTEGER:
-            case LiteralType.FLOAT:
-            case LiteralType.STRING:
-            case LiteralType.THIS:
-                return expr.value;
-            case LiteralType.BOOLEAN:
-                return expr.value === 'true' ? '1' : '0';
-            case LiteralType.NULL:
-                return '0';
-        }
+        return expr.value;
     }
 
     private _identifier(expr: IdentifierExpression) {

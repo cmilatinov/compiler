@@ -5,43 +5,52 @@ import {
     OperatorImplementation
 } from '../../operator/operator-definitions';
 import { Operator } from '../../operator/operators';
-import { FunctionTypeSpecifier, INTEGER_TYPE } from '../../type/type-specifier';
+import { BOOLEAN_TYPE, FunctionTypeSpecifier, INTEGER_TYPE } from '../../type/type-specifier';
 import { InstructionX64 } from './instruction';
 
 export class OperatorImplementationsX64 {
     private static _defaultUnaryOperatorImpl(instruction: InstructionX64): OperatorImplementation {
-        return (generator, returnValue, ...[first]) => {
-            if (returnValue.address.equals(first.address)) {
-                generator.instruction(instruction, returnValue.address.toString());
-            } else {
-                generator.mov(returnValue.address, first.address);
-                generator.instruction(instruction, returnValue.address.toString());
-            }
+        return (generator, returnValue, first) => {
+            generator.mov(returnValue.address, first.address);
+            generator.instruction(instruction, returnValue.address.toString());
         };
     }
 
     private static _defaultBinaryOperatorImpl(instruction: InstructionX64): OperatorImplementation {
-        return (generator, returnValue, ...[first, second]) => {
-            const equalsFirst = returnValue.address.equals(first.address);
-            const equalsSecond = returnValue.address.equals(second.address);
-            if (equalsFirst || equalsSecond) {
-                const src = equalsFirst ? second.address : first.address;
-                generator.instruction(instruction, returnValue.address.toString(), src.toString());
-            } else {
-                generator.mov(returnValue.address, first.address);
-                generator.instruction(
-                    instruction,
-                    returnValue.address.toString(),
-                    second.address.toString()
-                );
-            }
+        return (generator, returnValue, first, second) => {
+            generator.mov(returnValue.address, first.address);
+            generator.instruction(
+                instruction,
+                returnValue.address.toString(),
+                second.address.toString()
+            );
         };
     }
 
-    private static _mulBinaryOperation(instruction: InstructionX64): OperatorImplementation {
-        return (generator, returnValue, ...[first, second]) => {
+    private static _mulBinaryOperatorImpl(instruction: InstructionX64): OperatorImplementation {
+        return (generator, returnValue, first, second) => {
             generator.mov(returnValue.address, first.address);
             generator.instruction(instruction, second.address.toString());
+        };
+    }
+
+    private static _logicalNotOperatorImpl(): OperatorImplementation {
+        return (generator, returnValue, first) => {
+            this._defaultBinaryOperatorImpl(InstructionX64.NOT);
+            const firstAddr = first.address.toString();
+            generator.instruction(InstructionX64.TEST, firstAddr, firstAddr);
+            generator.instruction(InstructionX64.MOV, firstAddr, '0');
+            generator.instruction(InstructionX64.SETE, returnValue.address.toString());
+        };
+    }
+
+    private static _boolTypecastOperatorImpl(): OperatorImplementation {
+        return (generator, returnValue, first) => {
+            generator.mov(returnValue.address, first.address);
+            const firstAddr = first.address.toString();
+            generator.instruction(InstructionX64.TEST, firstAddr, firstAddr);
+            generator.instruction(InstructionX64.MOV, firstAddr, '0');
+            generator.instruction(InstructionX64.SETNE, returnValue.address.toString());
         };
     }
 
@@ -83,19 +92,26 @@ export class OperatorImplementationsX64 {
         //     )
         // );
 
-        // Multiplication / Division
+        // Multiplication / Division / Remainder
         table.addDefinition(
             Operator.MULTIPLICATION,
             new BasicOperatorDefinition(
                 new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
-                this._mulBinaryOperation(InstructionX64.IMUL)
+                this._mulBinaryOperatorImpl(InstructionX64.IMUL)
             )
         );
         table.addDefinition(
             Operator.DIVISION,
             new BasicOperatorDefinition(
                 new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
-                this._mulBinaryOperation(InstructionX64.IDIV)
+                this._mulBinaryOperatorImpl(InstructionX64.IDIV)
+            )
+        );
+        table.addDefinition(
+            Operator.REMAINDER,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
+                this._mulBinaryOperatorImpl(InstructionX64.IDIV)
             )
         );
 
@@ -108,62 +124,95 @@ export class OperatorImplementationsX64 {
             )
         );
 
-        // // Logical Not operator
+        // Bitwise Operators
+        table.addDefinition(
+            Operator.BITWISE_NOT,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE),
+                this._defaultUnaryOperatorImpl(InstructionX64.NOT)
+            )
+        );
+
+        table.addDefinition(
+            Operator.BITWISE_AND,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
+                this._defaultBinaryOperatorImpl(InstructionX64.AND)
+            )
+        );
+
+        table.addDefinition(
+            Operator.BITWISE_OR,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
+                this._defaultBinaryOperatorImpl(InstructionX64.OR)
+            )
+        );
+
+        table.addDefinition(
+            Operator.BITWISE_XOR,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
+                this._defaultBinaryOperatorImpl(InstructionX64.XOR)
+            )
+        );
+
+        // Logical Operators
+        table.addDefinition(
+            Operator.LOGICAL_NOT,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([BOOLEAN_TYPE], BOOLEAN_TYPE),
+                this._logicalNotOperatorImpl()
+            )
+        );
+
+        table.addDefinition(
+            Operator.LOGICAL_AND,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([BOOLEAN_TYPE, BOOLEAN_TYPE], BOOLEAN_TYPE),
+                this._defaultBinaryOperatorImpl(InstructionX64.AND)
+            )
+        );
+
+        table.addDefinition(
+            Operator.LOGICAL_OR,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([BOOLEAN_TYPE, BOOLEAN_TYPE], BOOLEAN_TYPE),
+                this._defaultBinaryOperatorImpl(InstructionX64.OR)
+            )
+        );
+
+        // Type casts
+        table.addDefinition(
+            Operator.TYPECAST,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([BOOLEAN_TYPE], INTEGER_TYPE),
+                () => {}
+            )
+        );
+        table.addDefinition(
+            Operator.TYPECAST,
+            new BasicOperatorDefinition(
+                new FunctionTypeSpecifier([INTEGER_TYPE], BOOLEAN_TYPE),
+                this._boolTypecastOperatorImpl()
+            )
+        );
+
+        // Shift Operators
+        // TODO: Add single-byte integer type
         // table.addDefinition(
-        //     Operator.LOGICAL_NOT,
-        //     new EmptyOperatorDefinition(new FunctionTypeSpecifier([BOOLEAN_TYPE], BOOLEAN_TYPE))
+        //     Operator.LEFT_SHIFT,
+        //     new BasicOperatorDefinition(
+        //         new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
+        //         this._defaultBinaryOperatorImpl(InstructionX64.SAL)
+        //     )
         // );
-        //
-        // // Bitwise Not operator
         // table.addDefinition(
-        //     Operator.BITWISE_NOT,
-        //     new EmptyOperatorDefinition(new FunctionTypeSpecifier([INTEGER_TYPE], INTEGER_TYPE))
-        // );
-        //
-        // // Arithmetic operators
-        // table.addDefinitionMultiple(
-        //     [...PowerOperatorList, ...MultiplicativeOperatorList, ...AdditiveOperatorList],
-        //     [
-        //         new EmptyOperatorDefinition(
-        //             new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE)
-        //         ),
-        //         new EmptyOperatorDefinition(
-        //             new FunctionTypeSpecifier([FLOAT_TYPE, FLOAT_TYPE], FLOAT_TYPE)
-        //         )
-        //     ]
-        // );
-        //
-        // // Shift & Bitwise operators
-        // table.addDefinitionMultiple(
-        //     [...ShiftOperatorList, ...BitwiseOperatorList],
-        //     [
-        //         new EmptyOperatorDefinition(
-        //             new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE)
-        //         )
-        //     ]
-        // );
-        //
-        // // Relational and equality operators
-        // table.addDefinitionMultiple(
-        //     [...RelationalOperatorList, ...EqualityOperatorList],
-        //     [
-        //         new EmptyOperatorDefinition(
-        //             new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], BOOLEAN_TYPE)
-        //         ),
-        //         new EmptyOperatorDefinition(
-        //             new FunctionTypeSpecifier([FLOAT_TYPE, FLOAT_TYPE], BOOLEAN_TYPE)
-        //         )
-        //     ]
-        // );
-        //
-        // // Logical operators
-        // table.addDefinitionMultiple(
-        //     [...LogicalOperatorList],
-        //     [
-        //         new EmptyOperatorDefinition(
-        //             new FunctionTypeSpecifier([BOOLEAN_TYPE, BOOLEAN_TYPE], BOOLEAN_TYPE)
-        //         )
-        //     ]
+        //     Operator.RIGHT_SHIFT,
+        //     new BasicOperatorDefinition(
+        //         new FunctionTypeSpecifier([INTEGER_TYPE, INTEGER_TYPE], INTEGER_TYPE),
+        //         this._defaultBinaryOperatorImpl(InstructionX64.SAR)
+        //     )
         // );
     }
 

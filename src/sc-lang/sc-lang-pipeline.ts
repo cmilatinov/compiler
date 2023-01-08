@@ -4,9 +4,9 @@ import { ParsingPipeline } from '../lib/pipeline';
 import { GrammarParserSLR1 } from '../lib/grammar/parsers';
 import { GrammarFactory } from '../lib/grammar';
 import { CodeGeneratorSCLangTAC } from './code-generator/tac/code-generator';
-import * as fs from 'fs';
 import { LRParseTable } from '../lib/grammar/parsers/lr-parse-table';
-import { CodeGeneratorSCLangX64 } from './code-generator/x64/code-generator';
+import { CodeGeneratorSCLangX64 } from './code-generator/x64';
+import * as fs from 'fs';
 
 export class SCLangPipeline extends ParsingPipeline {
     constructor() {

@@ -1,9 +1,16 @@
 import { Address, AddressType } from '../../../lib/code-generator';
-import { BaseRegister, Register, registerSize, sizedRegister } from './register';
+import { baseRegister, BaseRegister, Register, registerSize, sizedRegister } from './register';
 import _ from 'lodash';
 
+const SIZE_MAP = {
+    1: 'byte',
+    2: 'word',
+    4: 'dword',
+    8: 'qword'
+} as const;
+
 function asmSize(size: number) {
-    return { 1: 'byte', 2: 'word', 4: 'dword', 8: 'qword' }[size] || '';
+    return SIZE_MAP[size] || '';
 }
 
 function asmOffset(offset: number) {
@@ -48,6 +55,10 @@ export class RegisterAddressX64 extends BaseAddressX64 {
 
     public static createFromRegister(register: Register) {
         return new RegisterAddressX64(register, registerSize(register));
+    }
+
+    public static createFromOther(address: RegisterAddressX64, size: number) {
+        return new RegisterAddressX64(sizedRegister(baseRegister(address.register), size), size);
     }
 }
 
@@ -99,6 +110,23 @@ export class DirectMemoryAddressX64 extends BaseAddressX64 {
 
     public toString() {
         return this.memoryAddress;
+    }
+}
+
+export class ImmediateAddressX64 extends BaseAddressX64 {
+    public constructor(public readonly value: string, size: number) {
+        super(AddressType.IMMEDIATE, size);
+    }
+
+    public equals(other: Address) {
+        if (!other || !(other instanceof ImmediateAddressX64)) return false;
+
+        const addr = other as ImmediateAddressX64;
+        return addr.value === other.value && addr.size === other.size;
+    }
+
+    public toString() {
+        return this.value;
     }
 }
 

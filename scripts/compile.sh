@@ -1,0 +1,1 @@
+nasm -g -felf64 ./build/code.asm && gcc -g -m64 ./build/code.o -o ./build/code

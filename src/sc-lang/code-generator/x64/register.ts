@@ -409,7 +409,7 @@ export function sizedRegister(register: BaseRegister, size: number) {
     return REGISTER_MAP[register][bit] || null;
 }
 
-export function baseRegister(register: Register) {
+export function baseRegister(register: string) {
     return REVERSE_REGISTER_MAP[register];
 }
 

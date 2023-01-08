@@ -1,4 +1,18 @@
+def test() {
+    return 1;
+}
+
 def main() -> int {
-    let c = (1 * 2) + 4 / 2;
-    return c;
+    // 3
+    let a = 4 + -2 + (3 / 2 * 3) % 2;
+    // 4
+    let b = (true || false && true) + 3;
+    // 3
+    let c = ~(-1 * 2) + 4 / 2;
+    // 1
+    let d = !!2300;
+    // 6
+    let e = (2 ^ 3 + 23) * 2 / 7;
+    // 39
+    return a * (b * c - d) + e;
 }

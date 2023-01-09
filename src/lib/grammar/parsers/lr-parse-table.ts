@@ -36,6 +36,10 @@ export class ParseTableAction {
                 return `s${this.value}`;
         }
     }
+
+    public static fromObject(obj: any) {
+        return new ParseTableAction(obj?.type, obj?.value);
+    }
 }
 
 export class LRParseTable {
@@ -133,26 +137,6 @@ export class LRParseTable {
         });
     }
 
-    public getNumConflicts() {
-        let i = 0;
-        this._table.forEach((o) =>
-            Object.keys(o).forEach((k) => {
-                if (Array.isArray(o[k])) {
-                    const str = (o[k] as ParseTableAction[]).map((a) => a.toString()).join('/');
-                    // console.log(`${i} - ${str}`);
-                    i++;
-                }
-            })
-        );
-        return this._table
-            .map((e) =>
-                Object.keys(e)
-                    .map((k) => Number(Array.isArray(e[k])))
-                    .reduce((sum, value) => sum + value, 0)
-            )
-            .reduce((sum, value) => sum + value, 0);
-    }
-
     public save(file: string) {
         fs.writeFileSync(file, JSON.stringify(this._table));
     }
@@ -162,9 +146,9 @@ export class LRParseTable {
         table.forEach((state) => {
             Object.entries(state).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
-                    state[key] = value.map((v) => new ParseTableAction(v.type, v.value));
+                    state[key] = value.map((v) => ParseTableAction.fromObject(v));
                 } else if (typeof value === 'object') {
-                    state[key] = new ParseTableAction(value['type'], value['value']);
+                    state[key] = ParseTableAction.fromObject(value);
                 }
             });
         });

@@ -1,10 +1,6 @@
-def test() {
-    return 1;
-}
-
 def main() -> int {
     // 3
-    let a = 4 + -2 + (3 / 2 * 3) % 2;
+    let a = 6 + -2 - (3 / 2 * 3) % 2;
     // 4
     let b = (true || false && true) + 3;
     // 3

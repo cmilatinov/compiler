@@ -1,6 +1,6 @@
+import _ from 'lodash';
 import { SourceLocation } from '../../lib/tokenizer';
 import { VariableClass } from '../symbol-table/symbol-table-entries';
-import _ from 'lodash';
 
 export enum PrimitiveType {
     VOID = 'void',
@@ -30,29 +30,29 @@ export abstract class BaseTypeSpecifier {
 
     public abstract toString(): string;
 
-    public isFunctionType(): this is FunctionTypeSpecifier {
+    public isFunctionType() {
         return this.type === TypeSpecifierClass.FUNCTION_TYPE;
     }
 
-    public isPointerType(): this is TypeSpecifier {
+    public isPointerType() {
         const type = this.asType();
         return !!type.arraySizes || !!type.pointerLevel;
     }
 
-    public isArrayType(): this is TypeSpecifier {
+    public isArrayType() {
         return !!this.asType().arraySizes;
     }
 
-    public isReferenceType(): this is TypeSpecifier {
+    public isReferenceType() {
         return !!this.asType().referenceLevel;
     }
 
-    public isPrimitiveType(): this is TypeSpecifier {
+    public isPrimitiveType() {
         if (this.isFunctionType() || this.isPointerType() || this.isReferenceType()) return false;
         return Object.values<string>(PrimitiveType).includes(this.asType().value);
     }
 
-    public isClassType(): this is TypeSpecifier {
+    public isClassType() {
         return !this.isFunctionType() && !this.isPointerType() && !this.isPrimitiveType();
     }
 
@@ -68,7 +68,7 @@ export abstract class BaseTypeSpecifier {
         return this.isReferenceType() || this.isPointerType() || this.isFunctionType();
     }
 
-    public isFloatingType(): this is TypeSpecifier {
+    public isFloatingType() {
         return this.isPrimitiveType() && this.asType().value === PrimitiveType.FLOAT;
     }
 
@@ -88,7 +88,7 @@ export abstract class BaseTypeSpecifier {
         if (this.isPrimitiveType() && dest.isPrimitiveType()) {
             const srcType = this.asType().value;
             const destType = dest.asType().value;
-            return primitiveTypeCasts[srcType]?.includes(destType);
+            return primitiveTypeCasts[srcType].includes(destType);
         }
         // Void pointer to any other pointer
         if (this.equals(VOID_PTR_TYPE) && dest.isPointerType()) return true;
@@ -115,22 +115,23 @@ export abstract class BaseTypeSpecifier {
     public createDereferencedType() {
         if (!this.isPointerType()) throw new Error('Cannot dereference a non-pointer type.');
 
-        if (Array.isArray(this.arraySizes) && this.arraySizes.length > 0) {
+        const typeSpec = this.asType();
+        if (Array.isArray(typeSpec.arraySizes) && typeSpec.arraySizes.length > 0) {
             return new TypeSpecifier(
-                this.value,
-                this.location,
-                this.arraySizes.slice(0, this.arraySizes.length - 1),
-                this.pointerLevel,
-                this.referenceLevel
+                typeSpec.value,
+                typeSpec.location,
+                typeSpec.arraySizes.slice(0, typeSpec.arraySizes.length - 1),
+                typeSpec.pointerLevel,
+                typeSpec.referenceLevel
             );
         }
 
         return new TypeSpecifier(
-            this.value,
-            this.location,
-            this.arraySizes,
-            this.pointerLevel - 1,
-            this.referenceLevel
+            typeSpec.value,
+            typeSpec.location,
+            typeSpec.arraySizes,
+            typeSpec.pointerLevel - 1,
+            typeSpec.referenceLevel
         );
     }
 
@@ -152,12 +153,13 @@ export abstract class BaseTypeSpecifier {
         if (!this.isReferenceType())
             throw new Error('Cannot create unreferenced type from a non-reference type.');
 
+        const typeSpec = this.asType();
         return new TypeSpecifier(
-            this.value,
-            this.location,
-            this.arraySizes,
-            this.pointerLevel,
-            this.referenceLevel - 1
+            typeSpec.value,
+            typeSpec.location,
+            typeSpec.arraySizes,
+            typeSpec.pointerLevel,
+            typeSpec.referenceLevel - 1
         );
     }
 
@@ -276,7 +278,7 @@ export const FLOAT_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.FLOAT);
 export const STRING_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.STRING);
 
 // TODO: This is a hack to allow code in the grammar to access the type classes.
-// Instead, allow the grammar to specify an import file for any definitions needed.
+// Instead allow the grammar to specify an import file for any definitions needed.
 global.BaseTypeSpecifier = BaseTypeSpecifier;
 global.TypeSpecifier = TypeSpecifier;
 global.FunctionTypeSpecifier = FunctionTypeSpecifier;

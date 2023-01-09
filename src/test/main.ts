@@ -9,7 +9,7 @@ function main() {
     const pipeline = new SCLangPipeline();
     pipeline.diagnosticCallback = PRINT_DIAGNOSTICS;
 
-    const code = pipeline.execute('./src/sc-lang/examples/test.sc');
+    const code = pipeline.execute('./tests/sc-lang/src/test.sc');
     console.log();
     console.log(pipeline['_stages'][3].toString());
     console.log();

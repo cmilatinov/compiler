@@ -180,6 +180,8 @@ export const INTEGER_PARAMETER_REGISTERS = [
     BaseRegister.R9
 ];
 
+export const INTEGER_RETURN_REGISTER = BaseRegister.A;
+
 export const FLOATING_REGISTERS = [
     // Caller-Saved Registers
     BaseRegister.MM0,
@@ -212,6 +214,8 @@ export const FLOATING_PARAMETER_REGISTERS = [
     BaseRegister.MM6,
     BaseRegister.MM7
 ];
+
+export const FLOATING_RETURN_REGISTER = BaseRegister.MM0;
 
 const REGISTER_MAP = {
     [BaseRegister.A]: [Register.AL, Register.AX, Register.EAX, Register.RAX],
@@ -421,6 +425,10 @@ export function registerSize(register: Register) {
         size <<= 4;
     }
     return size;
+}
+
+export function isFloatingRegister(register: Register) {
+    return FLOATING_REGISTERS.includes(baseRegister(register));
 }
 
 export class RegisterAllocatorSCLang {

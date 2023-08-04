@@ -4,9 +4,23 @@ SourceElementList -> SourceElementList SourceElement {{ $$ = [...$1, $2] }} ;
 SourceElementList -> {{ $$ = [] }} ;
 
 SourceElement -> FunctionDeclaration {{ $$ = $1 }} ;
+SourceElement -> ExternDeclaration {{ $$ = $1 }} ;
 
-FunctionDeclaration -> 'def' 'id' '(' OptFormalParameterList ')' OptReturnTypeSpecifier '{' StatementList '}'
-{{ $$ = { type: $0, location: $1.location, name: $2.value, parameters: $4, returnType: $6, body: $8 } }} ;
+ExternDeclaration -> ExternVariableDeclaration | ExternFunctionDeclaration {{ $$ = $1 }} ;
+
+ExternVariableDeclaration -> 'extern' 'id' ':' Type ';'
+{{ $$ = { type: $0, location: $1.location, name: $2.value, typeSpecifier: $4 } }} ;
+
+ExternFunctionDeclaration -> 'extern' 'fn' FunctionSignature ';'
+{{ $$ = { type: $0, location: $1.location, ...$3 } }} ;
+
+FunctionDeclaration -> 'def' FunctionSignature FunctionBody
+{{ $$ = { type: $0, ...$2, ...$3 } }} ;
+
+FunctionSignature -> 'id' '(' OptFormalParameterList ')' OptReturnTypeSpecifier
+{{ $$ = { location: $1.location, name: $1.value, returnType: $5, ...$3 } }} ;
+
+FunctionBody -> '{' StatementList '}' {{ $$ = { body: $2 } }} ;
 
 TypeSpecifier -> ':' Type | ':' FunctionType {{ $$ = $2 }} ;
 
@@ -23,7 +37,7 @@ Type -> PointerType OptArraySizeList OptReference {{ $$ = TypeSpecifier.fromObje
 
 PointerType -> BaseType OptPointerLevel {{ $$ = TypeSpecifier.fromObject({ ...$1, ...$2 }) }} ;
 
-BaseType -> 'id' | 'bool' | 'int' | 'float' | 'string' {{ $$ = $1 }} ;
+BaseType -> 'id' | 'bool' | 'byte' | 'int' | 'float' | 'string' {{ $$ = $1 }} ;
 
 PointerLevel -> PointerLevel '*' {{ $$ = { pointerLevel: $1.pointerLevel + 1 } }} ;
 PointerLevel -> '*' {{ $$ = { pointerLevel: 1 } }} ;
@@ -60,8 +74,9 @@ FormalParameterList -> FormalParameterList ',' 'id' TypeSpecifier
 FormalParameterList -> 'id' TypeSpecifier
 {{ $$ = [{ type: 'Parameter', location: $1.location, name: $1.value, typeSpecifier: $2 }] }} ;
 
-OptFormalParameterList -> FormalParameterList {{ $$ = $1 }} ;
-OptFormalParameterList -> {{ $$ = [] }} ;
+OptFormalParameterList -> FormalParameterList {{ $$ = { parameters: $1, vararg: false } }} ;
+OptFormalParameterList -> FormalParameterList ',' '...' {{ $$ = { parameters: $1, vararg: true } }} ;
+OptFormalParameterList -> {{ $$ = { parameters: [], vararg: false } }} ;
 
 Statement -> BlockStatement {{ $$ = $1 }} ;
 Statement -> ExpressionStatement {{ $$ = $1 }} ;
@@ -229,7 +244,11 @@ UnaryExpression -> '++' UnaryExpression
                  | '&' UnaryExpression
                  | '*' UnaryExpression
 {{ $$ = { type: 'Expression', location: $1.location, operator: $1.value, operands: [$2] } }} ;
-UnaryExpression -> PostfixExpression {{ $$ = $1 }} ;
+UnaryExpression -> TypecastExpression {{ $$ = $1 }} ;
+
+TypecastExpression -> '(' Type ')' TypecastExpression
+{{ $$ = { type: 'Expression', location: $1.location, operator: 'type()', typeSpecifier: $2, operands: [$4] } }} ;
+TypecastExpression -> PostfixExpression {{ $$ = $1 }} ;
 
 PostfixExpression -> PostfixExpression '++'
                    | PostfixExpression '--'

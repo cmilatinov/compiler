@@ -1,15 +1,16 @@
 import { Set } from 'immutable';
 
 export enum InstructionTAC {
-    ASSIGNMENT,
-    COPY,
-    CONDITIONAL_JUMP,
-    JUMP,
-    PARAMETER,
-    PROCEDURE_CALL,
-    RETURN,
-    FUNCTION,
-    END_FUNCTION
+    ASSIGNMENT = 'assign',
+    COPY = 'copy',
+    CONDITIONAL_JUMP = 'jump',
+    JUMP = 'goto',
+    PARAMETER = 'param',
+    PROCEDURE_CALL = 'call',
+    RETURN = 'return',
+    FUNCTION = 'fn',
+    END_FUNCTION = 'endfn',
+    EXTERN = 'extern'
 }
 
 export interface BaseInstructionTAC {
@@ -19,11 +20,6 @@ export interface BaseInstructionTAC {
     toString(): string;
     getVariablesRead(): Set<string>;
     getVariablesWritten(): Set<string>;
-}
-
-export function isVariable(name: string) {
-    if (!name || typeof name !== 'string') return false;
-    return /^[_a-zA-Z]/.test(name);
 }
 
 export function toStringLiveSets(sets: { in: Set<string>; out: Set<string> }) {
@@ -169,15 +165,16 @@ export class ProcedureCallInstruction implements BaseInstructionTAC {
 
     constructor(
         public operands: {
-            procedureTarget: InstructionBlock;
+            procedureTarget: InstructionBlock | string;
             returnValueTarget?: string;
         }
     ) {}
 
     public toString() {
+        const label = this.getProcedureTargetLabel();
         return (
             `${this.operands.returnValueTarget ? `${this.operands.returnValueTarget} = ` : ''}` +
-            `call ${this.operands.procedureTarget?.label || '__'}`
+            `call ${label}`
         );
     }
 
@@ -189,6 +186,12 @@ export class ProcedureCallInstruction implements BaseInstructionTAC {
         return this.operands.returnValueTarget
             ? Set<string>([this.operands.returnValueTarget])
             : Set<string>();
+    }
+
+    public getProcedureTargetLabel() {
+        return typeof this.operands.procedureTarget === 'string'
+            ? this.operands.procedureTarget
+            : this.operands.procedureTarget?.label || '__';
     }
 }
 
@@ -242,6 +245,25 @@ export class EndFunctionInstruction implements BaseInstructionTAC {
 
     public toString() {
         return `endfn ${this.operands.label}`;
+    }
+
+    public getVariablesRead() {
+        return Set<string>();
+    }
+
+    public getVariablesWritten() {
+        return Set<string>();
+    }
+}
+
+export class ExternInstruction implements BaseInstructionTAC {
+    public readonly type = InstructionTAC.EXTERN;
+    public readonly live = { in: Set<string>(), out: Set<string>() };
+
+    constructor(public operands: { name: string }) {}
+
+    public toString() {
+        return `extern ${this.operands.name}`;
     }
 
     public getVariablesRead() {

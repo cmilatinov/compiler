@@ -79,20 +79,20 @@ export class StackAddressX64 extends BaseAddressX64 {
     }
 }
 
-export class IndirectMemoryAddressX64 extends RegisterAddressX64 {
-    public constructor(register: BaseRegister, size: number) {
-        super(sizedRegister(register, 8), size);
+export class IndirectMemoryAddressX64 extends BaseAddressX64 {
+    public constructor(public readonly label: string, size: number) {
+        super(AddressType.MEMORY, size);
     }
 
     public equals(other: Address) {
         if (!other || !(other instanceof IndirectMemoryAddressX64)) return false;
 
         const addr = other as IndirectMemoryAddressX64;
-        return addr.register === this.register && addr.size === this.size;
+        return addr.label === this.label && addr.size === this.size;
     }
 
     public toString() {
-        return `[${this.register}]`;
+        return `${asmSize(this.size)} [${this.label}]`;
     }
 }
 

@@ -65,7 +65,8 @@ export class OperatorDefinitionTable {
         const existingDef = this._opDefinitions[operator].find(
             (d) =>
                 d.type.hasArity(definition.type.parameters.length) &&
-                d.type.parameters.every((p, i) => p.equals(definition.type.parameters[i]))
+                d.type.parameters.every((p, i) => p.equals(definition.type.parameters[i])) &&
+                d.type.returnType.equals(definition.type.returnType)
         );
         if (existingDef) {
             return false;
@@ -113,6 +114,19 @@ export class OperatorDefinitionTable {
             return [];
         }
 
-        return definitions.concat(ruleDefsFiltered.filter((d) => d.type.hasArity(typeList.length)));
+        const ret = definitions.concat(
+            ruleDefsFiltered.filter((d) => d.type.hasArity(typeList.length))
+        );
+        return ret;
+    }
+
+    public getExactDefinition(
+        operator: Operator,
+        options: any,
+        typeList: BaseTypeSpecifier[],
+        returnType: BaseTypeSpecifier
+    ) {
+        const definitions = this.getCandidateDefinitions(operator, options, typeList, true);
+        return definitions.find((d) => d.type.returnType.equals(returnType));
     }
 }

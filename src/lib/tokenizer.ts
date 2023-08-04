@@ -37,6 +37,8 @@ export const FloatToken: TokenType = [
     Number
 ];
 export const BooleanToken: TokenType = [/^(?:true|false)/, 'bool', Boolean];
+export const SingleStringToken: TokenType = [/^'[^']*'/, 'string', String];
+export const DoubleStringToken: TokenType = [/^"[^"]*"/, 'string', String];
 
 const DEFAULT_TOKENS: TokenType[] = [
     // Whitespace

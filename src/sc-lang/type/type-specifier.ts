@@ -5,6 +5,7 @@ import { VariableClass } from '../symbol-table/symbol-table-entries';
 export enum PrimitiveType {
     VOID = 'void',
     BOOLEAN = 'boolean',
+    BYTE = 'byte',
     INTEGER = 'int',
     LONG = 'long',
     FLOAT = 'float',
@@ -30,7 +31,7 @@ export abstract class BaseTypeSpecifier {
 
     public abstract toString(): string;
 
-    public isFunctionType() {
+    public isFunctionType(): this is FunctionTypeSpecifier {
         return this.type === TypeSpecifierClass.FUNCTION_TYPE;
     }
 
@@ -63,7 +64,11 @@ export abstract class BaseTypeSpecifier {
     public isIntegerType() {
         if (this.isPrimitiveType()) {
             const pType = this.asType();
-            return pType.value === PrimitiveType.INTEGER || pType.value === PrimitiveType.BOOLEAN;
+            return (
+                pType.value === PrimitiveType.INTEGER ||
+                pType.value === PrimitiveType.BOOLEAN ||
+                pType.value === PrimitiveType.STRING
+            );
         }
         return this.isReferenceType() || this.isPointerType() || this.isFunctionType();
     }
@@ -82,8 +87,13 @@ export abstract class BaseTypeSpecifier {
         const primitiveTypeCasts = {
             [PrimitiveType.STRING]: [PrimitiveType.BOOLEAN],
             [PrimitiveType.BOOLEAN]: [PrimitiveType.INTEGER],
-            [PrimitiveType.INTEGER]: [PrimitiveType.BOOLEAN, PrimitiveType.FLOAT],
-            [PrimitiveType.FLOAT]: [PrimitiveType.BOOLEAN]
+            [PrimitiveType.INTEGER]: [
+                PrimitiveType.BOOLEAN,
+                PrimitiveType.FLOAT,
+                PrimitiveType.DOUBLE
+            ],
+            [PrimitiveType.FLOAT]: [PrimitiveType.BOOLEAN],
+            [PrimitiveType.FLOAT]: [PrimitiveType.DOUBLE]
         };
         if (this.isPrimitiveType() && dest.isPrimitiveType()) {
             const srcType = this.asType().value;
@@ -223,15 +233,18 @@ export class TypeSpecifier extends BaseTypeSpecifier {
 export class FunctionTypeSpecifier extends BaseTypeSpecifier {
     public readonly parameters: BaseTypeSpecifier[];
     public readonly returnType: BaseTypeSpecifier;
+    public readonly vararg: boolean;
 
     constructor(
         parameters: BaseTypeSpecifier[],
         returnType: BaseTypeSpecifier,
+        vararg: boolean = false,
         location?: SourceLocation
     ) {
         super(TypeSpecifierClass.FUNCTION_TYPE, location);
         this.parameters = parameters;
         this.returnType = returnType;
+        this.vararg = vararg;
     }
 
     public equals(other: any) {
@@ -246,17 +259,26 @@ export class FunctionTypeSpecifier extends BaseTypeSpecifier {
 
     public toString() {
         return (
-            `fn(${this.parameters.map((p) => p.toString()).join(', ')}) ` +
+            `fn(${this.parameters.map((p) => p.toString()).join(', ')}` +
+            `${this.vararg ? ', ...' : ''}) ` +
             `-> ${this.returnType.toString()}`
         );
     }
 
     public hasArity(arity: number) {
-        return this.parameters.length === arity;
+        return (
+            (!this.vararg && this.parameters.length === arity) ||
+            (this.vararg && arity >= this.parameters.length)
+        );
     }
 
     public static fromObject(obj: any) {
-        return new FunctionTypeSpecifier(obj.parameters, obj.returnType, obj.location);
+        return new FunctionTypeSpecifier(
+            obj.parameters,
+            obj.returnType,
+            obj.vararg || false,
+            obj.location
+        );
     }
 }
 
@@ -271,9 +293,13 @@ export const VOID_PTR_TYPE: TypeSpecifier = new TypeSpecifier(
 
 export const BOOLEAN_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.BOOLEAN);
 
+export const BYTE_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.BYTE);
+
 export const INTEGER_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.INTEGER);
 
 export const FLOAT_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.FLOAT);
+
+export const DOUBLE_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.DOUBLE);
 
 export const STRING_TYPE: TypeSpecifier = new TypeSpecifier(PrimitiveType.STRING);
 

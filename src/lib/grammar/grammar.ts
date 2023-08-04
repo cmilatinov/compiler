@@ -35,6 +35,16 @@ export class GrammarRule {
         ).join(' ')}`;
     }
 
+    public toBNFString(): string {
+        return `<${this.LHS}> ::= ${this.RHS.map((s) =>
+            s === EPSILON
+                ? 'E'
+                : Grammar.isTerminal(s)
+                ? `"${Grammar.stringify(s)}"`
+                : `<${Grammar.stringify(s)}>`
+        ).join(' ')}`;
+    }
+
     public equals(other: GrammarRule): boolean {
         return this.LHS === other.LHS && _.isEqual(this.RHS, other.RHS);
     }
@@ -136,12 +146,17 @@ export class Grammar {
     private _followSets: { [key: string]: Set<string> };
     private _tokenTypes: TokenType[];
 
+    private readonly _nonTerminalProperties: {
+        [key: string]: { nullable: boolean };
+    };
+
     public constructor(rules: GrammarRule[]) {
         this._rules = rules.filter((r) => !Grammar.isTerminal(r.LHS));
         this._terminalRules = rules.filter((r) => Grammar.isTerminal(r.LHS));
         this._startSymbol = rules[0].LHS;
         this._firstSets = {};
         this._followSets = {};
+        this._nonTerminalProperties = {};
         this.getSymbols();
         this.createTokenTypes();
         this.computeFirstFollow();
@@ -398,6 +413,21 @@ export class Grammar {
         return this._followSets[symbol];
     }
 
+    public isNullable(symbol: string) {
+        if (this._nonTerminalProperties[symbol])
+            return this._nonTerminalProperties[symbol].nullable;
+        if (!this._nonTerminals.includes(symbol)) return false;
+        const nullable = this._rules
+            .filter((r) => r.LHS === symbol)
+            .some((r) => r.RHS.every((s) => this.isNullable(s)));
+        this._nonTerminalProperties[symbol] = { nullable };
+        return nullable;
+    }
+
+    public isNullableSequence(sequence: string[]) {
+        return sequence.every((s) => this.isNullable(s));
+    }
+
     public print(print: StringProcessor = DEFAULT_PROCESSOR) {
         print(`Grammar:\n`);
 
@@ -435,8 +465,16 @@ export class Grammar {
         return this._rules.map((r) => r.toJSMachineString()).join('\n');
     }
 
+    public toBNFString(): string {
+        return this._rules.map((r) => r.toBNFString()).join('\n\n');
+    }
+
     public static isTerminal(symbol: string) {
         return symbol === EOF || symbol === EPSILON || /^'.*'$/.test(symbol);
+    }
+
+    public static isNonTerminal(symbol: string) {
+        return !Grammar.isTerminal(symbol);
     }
 
     public static stringify(symbol: string) {

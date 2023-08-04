@@ -119,7 +119,12 @@ export class TypeChecker extends ASTValidator {
     }
 
     private _type(node: Expression): BaseTypeSpecifier {
-        if (node.typeSpecifier) return node.typeSpecifier;
+        if (
+            node.typeSpecifier &&
+            (node.type !== NodeType.EXPRESSION ||
+                (node as OperatorExpression).operator !== Operator.TYPECAST)
+        )
+            return node.typeSpecifier;
         let type: BaseTypeSpecifier;
         switch (true) {
             case node.type === NodeType.IDENTIFIER:

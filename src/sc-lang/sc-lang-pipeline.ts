@@ -10,17 +10,21 @@ import * as fs from 'fs';
 
 export class SCLangPipeline extends ParsingPipeline {
     constructor() {
+        const exists = fs.existsSync(`./tables/sc-lang.json`);
+        const grammar = GrammarFactory.fromGRMFile('./grammars/sc-lang.grm');
+        const parser = new GrammarParserSLR1(
+            grammar,
+            exists ? LRParseTable.load('./tables/sc-lang.json') : undefined
+        );
         super(
-            new GrammarParserSLR1(
-                GrammarFactory.fromGRMFile('./grammars/sc-lang.grm'),
-                fs.existsSync(`./tables/sc-lang.json`)
-                    ? LRParseTable.load('./tables/sc-lang.json')
-                    : undefined
-            ),
+            parser,
             new SymbolTableGenerator(),
             new TypeChecker(),
             new CodeGeneratorSCLangTAC(),
             new CodeGeneratorSCLangX64()
         );
+        if (!exists) {
+            parser.parseTable.save(`./tables/sc-lang.json`);
+        }
     }
 }

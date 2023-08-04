@@ -2,7 +2,7 @@
     "name": "compiler",
     "version": "1.0.0",
     "scripts": {
-        "start": "ts-node --project tsconfig.json --transpile-only ./src/test/main.ts",
+        "start": "ts-node --project tsconfig.json --transpile-only ./src/test/main2.ts ./grammars/simple7.grm",
         "test": "jest --verbose"
     },
     "dependencies": {
@@ -11,9 +11,7 @@
         "command-line-usage": "^6.1.1",
         "immutable": "^4.1.0",
         "lodash": "^4.17.21",
-        "pkg": "^5.5.2",
         "table": "^6.8.0",
-        "ts-nameof": "^5.0.0",
         "typescript": "^4.8.4"
     },
     "devDependencies": {

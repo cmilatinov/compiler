@@ -1,5 +1,5 @@
 import { Grammar } from '../../grammar';
-import { LRItem } from '../items/lr-item';
+import { LRItem } from '../items';
 import { GraphState } from './graph';
 
 export class CanonicalCollection<T extends LRItem> {

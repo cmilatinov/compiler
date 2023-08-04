@@ -3,7 +3,6 @@ import {
     CodeGeneratorTAC,
     ConditionalJumpInstruction,
     InstructionBlock,
-    InstructionTAC,
     JumpInstruction
 } from '../../../lib/tac';
 import { PipelineStage } from '../../../lib/pipeline';
@@ -15,6 +14,8 @@ import {
     DoWhileStatement,
     Expression,
     ExpressionStatement,
+    ExternFunctionDeclaration,
+    ExternVariableDeclaration,
     ForStatement,
     FunctionDeclaration,
     IdentifierExpression,
@@ -52,6 +53,16 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
     }
 
     // ================ Visitor Functions ================
+    private _visitExternVariableDeclaration(decl: ExternVariableDeclaration) {
+        this._block(undefined, true);
+        this._extern(decl.name);
+    }
+
+    private _visitExternFunctionDeclaration(decl: ExternFunctionDeclaration) {
+        this._block(undefined, true);
+        this._extern(decl.name);
+    }
+
     private _visitFunctionDeclaration(decl: FunctionDeclaration) {
         const entry = this._currentTable.lookup(
             decl.name,
@@ -256,11 +267,8 @@ export class CodeGeneratorSCLangTAC extends CodeGeneratorTAC implements Pipeline
                     SymbolTableEntryType.FUNCTION
                 ) as FunctionEntry
             )?.instructionBlock;
-            params
-                .map((p) => this._expression(p))
-                .reverse()
-                .forEach((p) => this._param(p));
-            this._call(block, returnValue);
+            params.map((p) => this._expression(p)).forEach((p) => this._param(p));
+            this._call(block || (fn as IdentifierExpression).value, returnValue);
             return returnValue;
         }
         // TODO: Handle overloaded function call operators

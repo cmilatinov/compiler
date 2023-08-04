@@ -145,7 +145,7 @@
     {
         "LHS": "'non_terminal_literal'",
         "RHS": [
-            "(?:[a-zA-Z]+|ε)"
+            "(?:[a-zA-Z0-9]+|ε)"
         ]
     },
     {

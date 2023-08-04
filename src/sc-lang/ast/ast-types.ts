@@ -17,6 +17,8 @@ export enum NodeType {
     VARIABLE_STATEMENT = 'VariableStatement',
     VARIABLE_DECLARATION = 'VariableDeclaration',
     VARIABLE_INITIALIZER = 'VariableInitializer',
+    EXTERN_VARIABLE_DECLARATION = 'ExternVariableDeclaration',
+    EXTERN_FUNCTION_DECLARATION = 'ExternFunctionDeclaration',
     FUNCTION_DECLARATION = 'FunctionDeclaration',
     PARAMETER = 'Parameter',
     IDENTIFIER = 'Identifier'
@@ -123,12 +125,27 @@ export interface VariableInitializer extends ASTNode {
     expression: Expression;
 }
 
+export interface ExternVariableDeclaration extends ASTNode {
+    type: NodeType.EXTERN_VARIABLE_DECLARATION;
+    name: string;
+    typeSpecifier: BaseTypeSpecifier;
+}
+
+export interface ExternFunctionDeclaration extends ASTNode {
+    type: NodeType.EXTERN_FUNCTION_DECLARATION;
+    name: string;
+    returnType: BaseTypeSpecifier;
+    parameters: Parameter[];
+    vararg: boolean;
+}
+
 export interface FunctionDeclaration extends ASTNode {
     type: NodeType.FUNCTION_DECLARATION;
     name: string;
     parameters: Parameter[];
     returnType: BaseTypeSpecifier;
     body: ASTNode[];
+    vararg: boolean;
 }
 
 export interface Parameter extends ASTNode {

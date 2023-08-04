@@ -1,0 +1,94 @@
+S -> Exp ;
+
+Exp -> Exp ',' Exp2 ;
+Exp -> Exp2 ;
+
+Exp2 -> Exp15 '=' Exp2 ;
+Exp2 -> Exp3 ;
+
+Exp3 -> Exp4 '?' Exp ':' Exp3 ;
+Exp3 -> Exp4 ;
+
+Exp4 -> Exp4 '||' Exp5 ;
+Exp4 -> Exp5 ;
+
+Exp5 -> Exp5 '&&' Exp6 ;
+Exp5 -> Exp6 ;
+
+Exp6 -> Exp6 '|' Exp7 ;
+Exp6 -> Exp7 ;
+
+Exp7 -> Exp7 '^' Exp8 ;
+Exp7 -> Exp8 ;
+
+Exp8 -> Exp8 '&' Exp9 ;
+Exp8 -> Exp9 ;
+
+Exp9 -> Exp9 '==' Exp10 ;
+Exp9 -> Exp9 '!=' Exp10 ;
+Exp9 -> Exp10 ;
+
+Exp10 -> Exp10 '<' Exp11 ;
+Exp10 -> Exp10 '>' Exp11 ;
+Exp10 -> Exp10 '<=' Exp11 ;
+Exp10 -> Exp10 '>=' Exp11 ;
+Exp10 -> Exp11 ;
+
+Exp11 -> Exp11 '<<' Exp12 ;
+Exp11 -> Exp11 '>>' Exp12 ;
+Exp11 -> Exp12 ;
+
+Exp12 -> Exp12 '+' Exp13 ;
+Exp12 -> Exp12 '-' Exp13 ;
+Exp12 -> Exp13 ;
+
+Exp13 -> Exp13 '*' Exp14 ;
+Exp13 -> Exp13 '%' Exp14 ;
+Exp13 -> Exp13 '/' Exp14 ;
+Exp13 -> Exp14 ;
+
+Exp14 -> '(' 'id' ')' Exp14 ;
+Exp14 -> Exp15 ;
+
+Exp15 -> '++' Exp15 ;
+Exp15 -> '--' Exp15 ;
+Exp15 -> '&' Exp14 ;
+Exp15 -> '*' Exp14 ;
+Exp15 -> '+' Exp14 ;
+Exp15 -> '-' Exp14 ;
+Exp15 -> '~' Exp14 ;
+Exp15 -> '!' Exp14 ;
+Exp15 -> Exp16 ;
+
+Exp16 -> Exp16 '[' Exp ']' ;
+Exp16 -> Exp16 Args ;
+Exp16 -> Exp16 '.' 'id' ;
+Exp16 -> Exp16 '->' 'id' ;
+Exp16 -> Exp16 '++' ;
+Exp16 -> Exp16 '--' ;
+Exp16 -> Exp17 ;
+
+Exp17 -> '(' Exp ')' ;
+Exp17 -> 'id' ;
+Exp17 -> Literal ;
+
+Args -> '(' ArgList ')' ;
+Args -> '(' ')' ;
+
+ArgList -> ArgList ',' Exp2 ;
+ArgList -> Exp2 ;
+
+Literal -> 'string_literal' ;
+Literal -> 'float_literal' ;
+Literal -> 'int_literal' ;
+Literal -> 'bool_literal' ;
+Literal -> 'null_literal' ;
+Literal -> 'this' ;
+
+'int_literal' -> /(?:[1-9][0-9]*|0)/ ;
+'float_literal' -> /[+\-]?(?:[1-9][0-9]*|0)?(?:\.[0-9]*[1-9]|\.0)(?:[eE][+\-]?(?:[1-9][0-9]*|0))?/ ;
+'null_literal' -> /null/ ;
+'bool_literal' -> /(?:true|false)/ ;
+'string_literal' -> /(?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/ ;
+
+'id' -> /[a-zA-Z][a-zA-Z0-9_]*/ ;

@@ -5,6 +5,7 @@ import {
     ConditionalJumpInstruction,
     CopyInstruction,
     EndFunctionInstruction,
+    ExternInstruction,
     FunctionInstruction,
     InstructionBlock,
     JumpInstruction,
@@ -79,7 +80,7 @@ export class CodeGeneratorTAC extends DiagnosticProducer {
         return this._instruction(ParameterInstruction, { parameter });
     }
 
-    protected _call(target: InstructionBlock, returnValue?: string) {
+    protected _call(target: InstructionBlock | string, returnValue?: string) {
         return this._instruction(ProcedureCallInstruction, {
             procedureTarget: target,
             returnValueTarget: returnValue
@@ -96,6 +97,10 @@ export class CodeGeneratorTAC extends DiagnosticProducer {
 
     protected _endFunction(label: string) {
         return this._instruction(EndFunctionInstruction, { label });
+    }
+
+    protected _extern(name: string) {
+        return this._instruction(ExternInstruction, { name });
     }
 
     protected _isLoopingBlock(block: InstructionBlock) {

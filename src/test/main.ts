@@ -1,7 +1,10 @@
 import '../sc-lang/type/type-specifier';
 import { SCLangPipeline } from '../sc-lang/sc-lang-pipeline';
 import { PRINT_DIAGNOSTICS } from '../lib/pipeline';
-import * as fs from 'fs';
+import { printAST } from '../lib/ast/ast-utils';
+// import * as fs from 'fs';
+// import { printAST } from '../lib/ast/ast-utils';
+// import * as util from 'util';
 
 main();
 
@@ -9,15 +12,16 @@ function main() {
     const pipeline = new SCLangPipeline();
     pipeline.diagnosticCallback = PRINT_DIAGNOSTICS;
 
-    const code = pipeline.execute('./tests/sc-lang/src/test.sc');
+    const output = pipeline.execute('./tests/sc-lang/src/integers.sc');
     console.log();
     console.log(pipeline['_stages'][3].toString());
     console.log();
 
-    console.log(pipeline['_stages'][0].toString());
+    console.log(output);
 
-    const asmContent = `global main\n\nsection .text\n\n${code}`;
-    console.log(asmContent);
-    fs.mkdirSync('./build', { recursive: true });
-    fs.writeFileSync('./build/code.asm', asmContent);
+    // if (code) {
+    //     console.log(code);
+    //     fs.mkdirSync('./build', { recursive: true });
+    //     fs.writeFileSync('./build/code.asm', code);
+    // }
 }

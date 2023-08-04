@@ -23,6 +23,6 @@ OptReductionAction -> 'action_literal' {{ $$ = $1.value }} ;
 OptReductionAction -> {{ $$ = undefined }} ;
 
 'action_literal' -> /{{[\s\S]*?}}/ ;
-'non_terminal_literal' -> /(?:[a-zA-Z]+|ε)/ ;
+'non_terminal_literal' -> /(?:[a-zA-Z0-9]+|ε)/ ;
 'terminal_literal' -> /'[^']*'/ ;
 'regex_literal' -> /\/(?![*+?])(?:[^\r\n\[\/\\]|\\.|\[(?:[^\r\n\]\\]|\\.)*\])+\// ;

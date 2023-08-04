@@ -30,10 +30,11 @@ describe('language parser', () => {
             sourceElements: [
                 {
                     type: 'FunctionDeclaration',
-                    location: new SourceLocation('inline', 1, 1),
+                    location: new SourceLocation('inline', 1, 5),
                     name: 'main',
                     parameters: [],
                     returnType: VOID_TYPE,
+                    vararg: false,
                     body: []
                 }
             ]
@@ -46,10 +47,11 @@ describe('language parser', () => {
             sourceElements: [
                 {
                     type: 'FunctionDeclaration',
-                    location: new SourceLocation('inline', 1, 1),
+                    location: new SourceLocation('inline', 1, 5),
                     name: 'main',
                     parameters: [],
                     returnType: VOID_TYPE,
+                    vararg: false,
                     body: [
                         {
                             type: 'VariableStatement',

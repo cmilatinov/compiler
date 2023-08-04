@@ -1,4 +1,4 @@
-import { LRItem, LRItemBuilder } from '../items/lr-item';
+import { LRItem, LRItemBuilder } from '../items';
 import { Grammar } from '../../grammar';
 import { OrderedSet } from 'immutable';
 

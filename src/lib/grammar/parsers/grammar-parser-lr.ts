@@ -1,7 +1,7 @@
 import { LR0Item, LRItemBuilder } from './items';
 import { Grammar } from '../grammar';
 import { CanonicalCollection, GraphState } from './collection';
-import { OrderedSet } from 'immutable';
+import { Set, OrderedSet } from 'immutable';
 import { LRParseTable, ParseTableAction, ParseTableActionType } from './lr-parse-table';
 import { EOF, EPSILON } from '../../symbols';
 import { TokenInstance, Tokenizer } from '../../tokenizer';
@@ -10,17 +10,38 @@ import { DerivationNode, GrammarParser } from '../grammar-parser';
 export abstract class GrammarParserLR<ItemType extends LR0Item> extends GrammarParser {
     protected _collection: CanonicalCollection<ItemType>;
     protected _parseTable: LRParseTable;
+    protected _itemBuilder: LRItemBuilder<ItemType>;
 
     constructor(grammar: Grammar, parseTable?: LRParseTable) {
         super(grammar);
-        this._init(parseTable);
+        if (parseTable) {
+            this._parseTable = parseTable;
+        } else {
+            this._init();
+        }
     }
 
-    protected abstract _init(parseTable?: LRParseTable);
+    protected abstract _init();
 
-    protected _buildCanonicalCollection<T extends LR0Item>(
+    protected _stateIndex(state: GraphState<ItemType>) {
+        return this._collection.states.findIndex((s) => s.equals(state));
+    }
+
+    protected _isAcceptState<T extends LR0Item>(state: GraphState<T>) {
+        if (!state.isFinal()) return false;
+        if (state.items.size !== 1) return false;
+        const item = state.items.first();
+        return (
+            item.dotIndex > 0 &&
+            item.rule.LHS === this._grammar.getAugmentedStartSymbol() &&
+            item.rule.RHS[item.dotIndex - 1] === this._grammar.getStartSymbol()
+        );
+    }
+
+    protected _buildCanonicalCollection<T extends ItemType>(
         ctor: LRItemBuilder<T>
     ): CanonicalCollection<T> {
+        this._itemBuilder = ctor;
         const augmentedRule = this._augmentedGrammar.getRules()[0];
         type StackItem = [OrderedSet<T>, GraphState<T>, string];
         const itemStack: StackItem[] = [[OrderedSet([new ctor(augmentedRule, 0)]), undefined, '']];
@@ -28,7 +49,7 @@ export abstract class GrammarParserLR<ItemType extends LR0Item> extends GrammarP
         const states: GraphState<T>[] = [];
         while (itemStack.length > 0) {
             const [itemSet, prevState, transitionSymbol] = itemStack.shift();
-            const state = new GraphState(ctor, this._grammar, itemSet);
+            const state = new GraphState(ctor, this._grammar, OrderedSet<T>(itemSet));
             state.closure();
 
             const existingState = states.find((s) => s.equals(state));
@@ -62,22 +83,16 @@ export abstract class GrammarParserLR<ItemType extends LR0Item> extends GrammarP
 
     protected _buildParseTable<T extends LR0Item>(
         collection: CanonicalCollection<T>,
-        reduceTerminalSetFn: (grammar: Grammar, item: T) => string[]
+        reduceTerminalSetFn: (item: T, state: GraphState<T>, stateIndex: number) => Set<string>
     ): LRParseTable {
         const table = new LRParseTable();
         const rules = this._augmentedGrammar.getRules();
         collection.states.forEach((s, i) => {
             if (s.isFinal()) {
                 // Accept
-                if (s.items.size === 1) {
-                    const item = s.items.toJSON()[0];
-                    if (
-                        item.dotIndex > 0 &&
-                        item.rule.RHS[item.dotIndex - 1] === this._grammar.getStartSymbol()
-                    ) {
-                        table.addEntry(i, EOF, new ParseTableAction(ParseTableActionType.ACCEPT));
-                        return;
-                    }
+                if (this._isAcceptState(s)) {
+                    table.addEntry(i, EOF, new ParseTableAction(ParseTableActionType.ACCEPT));
+                    return;
                 }
 
                 // Reduce
@@ -85,7 +100,7 @@ export abstract class GrammarParserLR<ItemType extends LR0Item> extends GrammarP
                 const ruleIndexes = items.map((i) => rules.findIndex((r) => r.equals(i.rule)));
                 items.forEach((item, itemIndex) => {
                     const ruleIndex = ruleIndexes[itemIndex];
-                    reduceTerminalSetFn(this._grammar, item).forEach((t) =>
+                    reduceTerminalSetFn(item, s, i).forEach((t) =>
                         table.addEntry(
                             i,
                             t,

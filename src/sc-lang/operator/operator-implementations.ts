@@ -281,7 +281,10 @@ export class OperatorImplementations {
     ): OperatorDefinition[] | BaseException {
         if (fn.isFunctionType()) {
             const fnType = fn.asFunctionType();
-            if (fnType.parameters.length !== args.length) {
+            if (
+                (!fnType.vararg && fnType.parameters.length !== args.length) ||
+                (fnType.vararg && args.length < fnType.parameters.length)
+            ) {
                 return new TypeException(
                     `Function of type '${fnType.toString()}' ` +
                         `called with wrong number of arguments. ` +
@@ -310,7 +313,11 @@ export class OperatorImplementations {
 
             return [
                 new EmptyOperatorDefinition(
-                    new FunctionTypeSpecifier([fn, ...fnType.parameters], fnType.returnType)
+                    new FunctionTypeSpecifier(
+                        [fn, ...fnType.parameters],
+                        fnType.returnType,
+                        fnType.vararg
+                    )
                 )
             ];
         }

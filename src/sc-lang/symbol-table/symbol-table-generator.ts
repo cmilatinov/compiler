@@ -8,8 +8,13 @@ import {
     SymbolTableEntryType
 } from './symbol-table-entries';
 import { BaseException, SemanticException } from '../../lib/exceptions';
-import { BaseTypeSpecifier, FunctionTypeSpecifier, VOID_TYPE } from '../type/type-specifier';
-import { FunctionDeclaration, VariableStatement } from '../ast/ast-types';
+import { FunctionTypeSpecifier, VOID_TYPE } from '../type/type-specifier';
+import {
+    ExternFunctionDeclaration,
+    ExternVariableDeclaration,
+    FunctionDeclaration,
+    VariableStatement
+} from '../ast/ast-types';
 
 export class SymbolTableGenerator extends ASTValidator {
     private readonly _globalTable: SymbolTable;
@@ -117,19 +122,31 @@ export class SymbolTableGenerator extends ASTValidator {
         }
     }
 
-    private _visitFunctionDeclaration(decl: FunctionDeclaration) {
+    private _visitExternVariableDeclaration(decl: ExternVariableDeclaration) {
+        const variableEntry: LocalVariableEntry = {
+            type: SymbolTableEntryType.LOCAL_VARIABLE,
+            location: decl.location,
+            name: decl.name,
+            references: 0,
+            constant: true,
+            parentTable: this._currentTable,
+            typeSpecifier: decl.typeSpecifier
+        };
+        this._insertVariableEntry(variableEntry);
+        return true;
+    }
+
+    private _visitExternFunctionDeclaration(decl: ExternFunctionDeclaration) {
         const symbolTable = new SymbolTable(decl.name, this._currentTable);
-        const parameters: FunctionParameterEntry[] = (decl.parameters as ASTNode[]).map(
-            (p, index) => ({
-                type: SymbolTableEntryType.PARAMETER,
-                location: p.location,
-                name: p.name,
-                references: 0,
-                parentTable: symbolTable,
-                typeSpecifier: p.typeSpecifier,
-                index
-            })
-        );
+        const parameters: FunctionParameterEntry[] = decl.parameters.map((p, index) => ({
+            type: SymbolTableEntryType.PARAMETER,
+            location: p.location,
+            name: p.name,
+            references: 0,
+            parentTable: symbolTable,
+            typeSpecifier: p.typeSpecifier,
+            index
+        }));
         const functionEntry: FunctionEntry = {
             type: SymbolTableEntryType.FUNCTION,
             location: decl.location,
@@ -140,14 +157,49 @@ export class SymbolTableGenerator extends ASTValidator {
             parameters,
             typeSpecifier: new FunctionTypeSpecifier(
                 decl.parameters.map((p) => p.typeSpecifier),
-                decl.returnType || VOID_TYPE
+                decl.returnType || VOID_TYPE,
+                decl.vararg
             )
         };
         this._insertFunctionEntry(functionEntry);
         return true;
     }
 
-    private _postVisitFunctionDeclaration(decl: FunctionDeclaration) {
+    private _postVisitExternFunctionDeclaration() {
+        this._currentTable = this._currentTable.getParentTable() || this._globalTable;
+        return true;
+    }
+
+    private _visitFunctionDeclaration(decl: FunctionDeclaration) {
+        const symbolTable = new SymbolTable(decl.name, this._currentTable);
+        const parameters: FunctionParameterEntry[] = decl.parameters.map((p, index) => ({
+            type: SymbolTableEntryType.PARAMETER,
+            location: p.location,
+            name: p.name,
+            references: 0,
+            parentTable: symbolTable,
+            typeSpecifier: p.typeSpecifier,
+            index
+        }));
+        const functionEntry: FunctionEntry = {
+            type: SymbolTableEntryType.FUNCTION,
+            location: decl.location,
+            name: decl.name,
+            references: 0,
+            parentTable: this._currentTable,
+            symbolTable,
+            parameters,
+            typeSpecifier: new FunctionTypeSpecifier(
+                decl.parameters.map((p) => p.typeSpecifier),
+                decl.returnType || VOID_TYPE,
+                decl.vararg
+            )
+        };
+        this._insertFunctionEntry(functionEntry);
+        return true;
+    }
+
+    private _postVisitFunctionDeclaration() {
         this._currentTable = this._currentTable.getParentTable() || this._globalTable;
         return true;
     }
